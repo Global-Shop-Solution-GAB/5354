@@ -1,0 +1,423 @@
+Program.Sub.ScreenSU.Start
+gui.Form1..create
+gui.Form1..caption("Shape Code Maintenance")
+gui.Form1..size(7005,7830)
+gui.Form1..minx(0)
+gui.Form1..miny(0)
+gui.Form1..position(0,0)
+gui.Form1..event(unload,form1_unload)
+gui.Form1..alwaysontop(False)
+gui.Form1..fontname("Arial")
+gui.Form1..fontsize(8)
+gui.Form1..forecolor(0)
+gui.Form1..fontstyle(,,,,)
+gui.Form1..BackColor(-2147483633)
+gui.Form1..controlbox(True)
+gui.Form1..maxbutton(True)
+gui.Form1..minbutton(True)
+gui.Form1..mousepointer(0)
+gui.Form1..moveable(True)
+gui.Form1..sizeable(True)
+gui.Form1..ShowInTaskBar(True)
+gui.Form1..titlebar(True)
+gui.Form1.lblShape.create(label,"Shape Code",True,1935,255,1,200,200,True,0,Arial,8,-2147483633,0)
+gui.Form1.lblShape.defaultvalue("")
+gui.Form1.lblShape.controlgroup(0)
+gui.Form1.txtShape.create(textbox,"",True,885,300,0,200,500,True,0,Arial,8,-2147483643,1)
+gui.Form1.txtShape.maxLength(1)
+gui.Form1.txtShape.defaultvalue("")
+gui.Form1.txtShape.controlgroup(0)
+gui.Form1.lblCustCode.create(label,"Customer Specified Code",True,1935,255,1,1360,200,True,0,Arial,8,-2147483633,0)
+gui.Form1.lblCustCode.defaultvalue("")
+gui.Form1.lblCustCode.controlgroup(0)
+gui.Form1.txtCust.create(textbox,"",True,1740,300,0,1360,500,True,0,Arial,8,-2147483643,1)
+gui.Form1.txtCust.defaultvalue("")
+gui.Form1.txtCust.controlgroup(0)
+gui.Form1.lblWarehouse.create(label,"Warehouse Name",True,1935,255,1,3525,200,True,0,Arial,8,-2147483633,0)
+gui.Form1.lblWarehouse.defaultvalue("")
+gui.Form1.lblWarehouse.controlgroup(0)
+gui.Form1.txtWarehouse.create(textbox,"",True,2250,300,0,3525,500,True,0,Arial,8,-2147483643,1)
+gui.Form1.txtWarehouse.defaultvalue("")
+gui.Form1.txtWarehouse.controlgroup(0)
+gui.Form1.cmdAdd.create(button)
+gui.Form1.cmdAdd.caption("Add")
+gui.Form1.cmdAdd.visible(True)
+gui.Form1.cmdAdd.size(855,375)
+gui.Form1.cmdAdd.zorder(0)
+gui.Form1.cmdAdd.position(200,1000)
+gui.Form1.cmdAdd.enabled(True)
+gui.Form1.cmdAdd.fontname("Arial")
+gui.Form1.cmdAdd.fontsize(8)
+gui.Form1.cmdAdd.event(click,cmdadd_click)
+gui.Form1.cmdAdd.defaultvalue("")
+gui.Form1.cmdAdd.controlgroup(0)
+gui.Form1.gsfgWarehouse.create(gsflexgrid)
+gui.Form1.gsfgWarehouse.FixedRows(0)
+gui.Form1.gsfgWarehouse.FixedCols(0)
+gui.Form1.gsfgWarehouse.visible(True)
+gui.Form1.gsfgWarehouse.size(6465,5670)
+gui.Form1.gsfgWarehouse.zorder(0)
+gui.Form1.gsfgWarehouse.position(100,1455)
+gui.Form1.gsfgWarehouse.enabled(True)
+gui.Form1.gsfgWarehouse.event(mousedown,gsfgwarehouse_mousedown)
+gui.Form1.gsfgWarehouse.event(commandclick,gsfgwarehouse_commandclick)
+
+
+Program.Sub.ScreenSU.End
+
+Program.Sub.Preflight.Start
+
+Program.Sub.Preflight.End
+
+Program.Sub.Main.Start
+'BN, Jan 15, 2018
+'This project is a modification of project 1157.
+'The old scripts are: GCG_Email_Maint.gas, GCG_SpreadSheet.gas, GCG_WareHouse_Maint.gas 
+'Project number 5354 are added to new scripts name.
+
+'Project 5354 features added:
+'User can select Customers to run the report.
+'Customers Default Selection are stored in GCG_5354_Customers
+
+F.Intrinsic.Control.SetErrorHandler("Main_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+'Variable for Row Count
+V.Local.iRow.Declare(Long)
+'Variable for SQL Query
+V.Local.sSql.Declare(String)
+'Open Connection to the Database
+F.ODBC.Connection!conx.OpenConnection(V.Ambient.PDSN,V.Ambient.PUser,V.Ambient.PPass)
+'Call sub Buildstyle
+F.Intrinsic.Control.CallSub(Buildstyle)
+
+'Set SQL Query
+V.Local.sSql.Set("Select Shape_Code, Cust_SP_Code, Warehouse from GCG_Warehouse_Maint")
+'Open connection to record set
+F.ODBC.Connection!conx.OpenLocalRecordsetRO("rst",V.Local.sSql)
+'Check to see if there are any records
+F.Intrinsic.Control.If(V.ODBC.conx!rst.EOF,!=,True)
+	'if there are records load them into the flexgrid
+	Gui.Form1.gsfgWarehouse.LoadRecordset("conx!rst",2)
+	'get row count of flexgrid
+	V.Local.iRow.Set(V.Screen.Form1!gsfgWarehouse.Rows)
+	'subtract 1 due to blank row
+	F.Intrinsic.Math.Sub(V.Local.iRow,1,V.Local.iRow)
+	'Update flexgrid to remove blank line
+	Gui.Form1.gsfgWarehouse.Rows(V.Local.iRow)
+F.Intrinsic.Control.Else
+	'get row count of flexgrid
+	V.Local.iRow.Set(V.Screen.Form1!gsfgWarehouse.Rows)
+	'Subtract 1 for blank row
+	F.Intrinsic.Math.Sub(V.Local.iRow,1,V.Local.iRow)
+	'Update flexgrid to remove blank row
+	Gui.Form1.gsfgWarehouse.Rows(V.Local.iRow)
+F.Intrinsic.Control.EndIf
+
+'Show Form 1
+Gui.Form1..Show
+'Set focus to the shape text box
+Gui.Form1.txtShape.SetFocus
+'close connection to the record set
+F.ODBC.conx!rst.Close
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("Main_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_WareHouse_Maint.gas",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+	F.Intrinsic.Control.CallSub(Form1_unload)
+Function.Intrinsic.Control.EndIf
+
+
+Program.Sub.Main.End
+
+program.sub.gsfgwarehouse_commandclick.start
+F.Intrinsic.Control.SetErrorHandler("gsfgwarehouse_commandclick_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+'Variable for row count
+V.Local.iRow.Declare(Long)
+'Variable for shape code
+V.Local.sShape.Declare(String)
+'Variable for Customer code
+V.Local.sCust.Declare(String)
+'Variable for warehouse
+V.Local.sWarehouse.Declare(String)
+'Variable for SQL Query
+V.Local.sSql.Declare(String)
+
+'Set the current row to Variable
+V.Local.iRow.Set(V.Screen.Form1!gsfgWarehouse.Row)
+'Save shape to variable
+Gui.Form1.gsfgWarehouse.GetTextMatrix(0,V.Local.iRow,V.Local.sShape)
+'Save customer code to Variable
+Gui.Form1.gsfgWarehouse.GetTextMatrix(1,V.Local.iRow,V.Local.sCust)
+'Save warehouse name to variable
+Gui.Form1.gsfgWarehouse.GetTextMatrix(2,V.Local.iRow,V.Local.sWarehouse)
+'Set SQL Query
+F.Intrinsic.String.Concat("Select * From GCG_Warehouse_Maint where Shape_Code = '",V.Local.sShape,"' and Cust_SP_Code = '",V.Local.sCust,"' and Warehouse = '",V.Local.sWarehouse,"'",V.local.sSql)
+'Open connection to record set
+F.ODBC.Connection!conx.OpenLocalRecordsetRW("rst",V.Local.sSql)
+'Delete the record
+F.ODBC.conx!rst.Delete
+'Close Connection to record set
+F.ODBC.conx!rst.Close
+'Subtract 1 from the count to get the right ordinal
+F.Intrinsic.Math.Sub(V.Local.iRow,1,V.Local.iRow)
+'Delete the row
+Gui.Form1.gsfgWarehouse.DeleteRow(v.Local.iRow)
+'Set focus to the shape text box
+Gui.Form1.txtShape.SetFocus
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("gsfgwarehouse_commandclick_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_WareHouse_Maint.gas",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+	F.Intrinsic.Control.CallSub(Form1_unload)
+Function.Intrinsic.Control.EndIf
+
+
+program.sub.gsfgwarehouse_commandclick.end
+
+program.sub.cmdadd_click.start
+F.Intrinsic.Control.SetErrorHandler("cmdadd_click_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+'Variable for row count
+V.Local.iRow.Declare(Long)
+'variable for Rec ID
+V.Local.iRec.Declare(Long)
+'Variable for SQL Query
+V.Local.sSql.Declare(String)
+
+'Get the number of rows in the flexgrid
+V.Local.iRow.Set(V.Screen.Form1!gsfgWarehouse.Rows)
+'Add 1 to row count so blank line can be added for input
+F.Intrinsic.Math.Add(V.Local.iRow,1,V.Local.iRow)
+'Check to make sure Shape code was entered
+F.Intrinsic.Control.If(V.Screen.Form1!txtShape.Text,!=,"")
+	'Check to make sure customer code was entered
+	F.Intrinsic.Control.If(V.Screen.Form1!txtCust.Text,!=,"")
+			'Check to make sure Warehouse Name was entered
+			F.Intrinsic.Control.If(V.Screen.Form1!txtWarehouse.Text,!=,"")
+				'Add blank row to flexgrid
+				Gui.Form1.gsfgWarehouse.Rows(V.Local.iRow)
+				'Subtract 1 from count to get the ordinal of the row
+				F.Intrinsic.Math.Sub(V.Local.iRow,1,V.Local.iRow)
+				'Save Shape code to flexgrid
+				Gui.Form1.gsfgWarehouse.TextMatrix(0,V.Local.iRow,V.Screen.Form1!txtShape.Text)
+				'Save Customer Specific code to flexgrid
+				Gui.Form1.gsfgWarehouse.TextMatrix(1,V.Local.iRow,V.Screen.Form1!txtCust.Text)
+				'Save Warehouse name to flexgrid
+				Gui.Form1.gsfgWarehouse.TextMatrix(2,V.Local.iRow,V.Screen.Form1!txtWarehouse.Text)
+				'Apply Style to row
+				Gui.Form1.gsfgWarehouse.ApplyStyle(V.Local.iRow,2)
+				'Set SQL Query
+				V.Local.sSql.Set("Select * From GCG_Warehouse_Maint")
+				'Open record set
+				F.ODBC.Connection!conx.OpenLocalRecordsetRW("rst",V.Local.sSql)
+				'Get Rec ID
+				f.ODBC.Connection!conx.GetID("GCG_Warehouse_Maint","Rec_ID",True,v.Local.iRec)
+				'Add New Record
+				F.ODBC.conx!rst.AddNew
+				'Save Shape Code to new record
+				F.ODBC.conx!rst.Set!Shape_Code(V.Screen.Form1!txtShape.Text)
+				'Save Customer Specific Code
+				F.ODBC.conx!rst.Set!Cust_SP_Code(V.Screen.Form1!txtCust.Text)
+				'Save Warehouse Name
+				F.ODBC.conx!rst.Set!Warehouse(V.Screen.Form1!txtWarehouse.Text)
+				'Save the ID
+				F.ODBC.conx!rst.Set!Rec_ID(V.Local.iRec)
+				'Update the record
+				F.ODBC.conx!rst.Update
+				'Clear the shape text box	
+				Gui.Form1.txtShape.Text("")
+				'Clear the Customer Specific Code text box
+				Gui.Form1.txtCust.Text("")
+				'Clear the Warehouse Name text box
+				Gui.Form1.txtWarehouse.Text("")
+				'Set the focus to the Shape text box
+				Gui.Form1.txtShape.SetFocus
+			F.Intrinsic.Control.Else
+				'prompt the user to enter a warehouse name
+				F.Intrinsic.UI.Msgbox("Please enter a Warehouse name.","Warehouse Missing")
+				'Set focus to the warehouse text box
+				Gui.Form1.txtWarehouse.SetFocus
+				F.Intrinsic.Control.ExitSub
+			F.Intrinsic.Control.EndIf
+	F.Intrinsic.Control.Else
+		'Prompt user to enter a customer specified code
+		F.Intrinsic.UI.Msgbox("Please enter a Customer Specified Code.","Customer Code Missing")
+		'Set focus to the customer specified code text box
+		Gui.Form1.txtCust.SetFocus
+		F.Intrinsic.Control.ExitSub
+	F.Intrinsic.Control.EndIf
+F.Intrinsic.Control.Else
+	'Prompt user to enter a shape code
+	F.Intrinsic.UI.Msgbox("Please enter a Shape Code.","Shape Code Missing")
+	'Set focus to the shape code text box
+	Gui.Form1.txtShape.SetFocus
+	F.Intrinsic.Control.ExitSub
+F.Intrinsic.Control.EndIf
+
+'close Connection to the record set
+F.ODBC.conx!rst.Close
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("cmdadd_click_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_WareHouse_Maint.gas",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+	F.Intrinsic.Control.CallSub(Form1_unload)
+Function.Intrinsic.Control.EndIf
+
+
+program.sub.cmdadd_click.end
+
+program.sub.form1_unload.start
+F.Intrinsic.Control.SetErrorHandler("form1_unload_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+'Close Connection
+F.ODBC.Connection!conx.Close
+'End the Program
+F.Intrinsic.Control.End
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("form1_unload_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_WareHouse_Maint.gas",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+	F.Intrinsic.Control.End
+Function.Intrinsic.Control.EndIf
+
+
+program.sub.form1_unload.end
+
+Program.Sub.BuildStyle.Start
+F.Intrinsic.Control.SetErrorHandler("BuildStyle_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+'Set the flexgrid to have 4 columns with 2 rows.  One of the rows will be fixed to hold the titles.
+Gui.Form1.gsfgWarehouse.Cols(4)
+Gui.Form1.gsfgWarehouse.Rows(2)
+Gui.Form1.gsfgWarehouse.FixedRows(1)
+
+'Set the amount of space each column will take up on the flexgrid
+Gui.Form1.gsfgWarehouse.SetColumnPercentages(".20:.30:.30:.20")
+
+'Buildstyle
+'Column 0
+'Style 1
+Gui.Form1.gsfgWarehouse.BuildStyle(1,0,"Type","Locked",True)
+Gui.Form1.gsfgWarehouse.BuildStyle(1,0,"Fontstyle","Bold",True)
+Gui.Form1.gsfgWarehouse.BuildStyle(1,0,"Format","Alignment",4)
+
+'Style 2
+Gui.Form1.gsfgWarehouse.BuildStyle(2,0,"Type","Locked",True)
+Gui.Form1.gsfgWarehouse.BuildStyle(2,0,"Format","Alignment",2)
+
+'Column 1
+'Style 1
+Gui.Form1.gsfgWarehouse.BuildStyle(1,1,"Type","Locked",True)
+Gui.Form1.gsfgWarehouse.BuildStyle(1,1,"Fontstyle","Bold",True)
+Gui.Form1.gsfgWarehouse.BuildStyle(1,1,"Format","Alignment",4)
+
+'Style 2
+Gui.Form1.gsfgWarehouse.BuildStyle(2,1,"Type","Locked",True)
+Gui.Form1.gsfgWarehouse.BuildStyle(2,1,"Format","Alignment",2)
+
+'Column 2
+'Style 1
+Gui.Form1.gsfgWarehouse.BuildStyle(1,2,"Type","Locked",True)
+Gui.Form1.gsfgWarehouse.BuildStyle(1,2,"Fontstyle","Bold",True)
+Gui.Form1.gsfgWarehouse.BuildStyle(1,2,"Format","Alignment",4)
+
+'Style 2
+Gui.Form1.gsfgWarehouse.BuildStyle(2,2,"Type","Locked",True)
+Gui.Form1.gsfgWarehouse.BuildStyle(2,2,"Format","Alignment",2)
+
+'Column 3
+'Style 1
+Gui.Form1.gsfgWarehouse.BuildStyle(1,3,"Type","Locked",True)
+Gui.Form1.gsfgWarehouse.BuildStyle(1,3,"Fontstyle","Bold",True)
+Gui.Form1.gsfgWarehouse.BuildStyle(1,3,"Format","Alignment",4)
+
+'Style 2
+Gui.Form1.gsfgWarehouse.BuildStyle(2,3,"Type","Command","Delete")
+Gui.Form1.gsfgWarehouse.BuildStyle(2,3,"Format","Alignment",4)
+
+'Apply Style 1 to row 0
+Gui.Form1.gsfgWarehouse.ApplyStyle(0,1)
+'Apply style 2, to row 1
+Gui.Form1.gsfgWarehouse.ApplyStyle(1,2)
+
+'Set the titles for the flexgrid
+Gui.Form1.gsfgWarehouse.TextMatrix(0,0,"Shape Code")
+Gui.Form1.gsfgWarehouse.TextMatrix(1,0,"Customer Code")
+Gui.Form1.gsfgWarehouse.TextMatrix(2,0,"Warehouse")
+Gui.Form1.gsfgWarehouse.TextMatrix(3,0,"Delete")
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("BuildStyle_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_WareHouse_Maint.gas",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+	F.Intrinsic.Control.CallSub(Form1_unload)
+Function.Intrinsic.Control.EndIf
+
+
+Program.Sub.BuildStyle.End
+
+program.sub.gsfgwarehouse_mousedown.start
+F.Intrinsic.Control.SetErrorHandler("gsfgwarehouse_mousedown_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+'Variable to hold Column
+V.Local.iCol.Declare(Long)
+'Variable to hold row count
+V.Local.iRow.Declare(Long)
+'Set row count
+V.Local.iRow.Set(V.Screen.Form1!gsfgWarehouse.Rows)
+'Check to see if the flexgrid had more than 2 rows
+F.Intrinsic.Control.If(V.Local.iRow,>,2)
+	'Subtract 1 from count to get ordinal
+	F.Intrinsic.Math.Sub(V.Local.iRow,1,V.Local.iRow)
+	'Save column Clicked
+	V.Local.iCol.Set(V.Screen.Form1!gsfgWarehouse.Col)
+	'Make sure column 3 was not clicked and only row 0 is clicked
+	F.Intrinsic.Control.If(V.Local.iCol,=,3,"or",V.Args.MouseRow,!=,0)
+		Gui.Form1.txtShape.SetFocus
+		F.Intrinsic.Control.ExitSub
+	F.Intrinsic.Control.EndIf
+	'Sort the grid based on the column clicked
+	Gui.Form1.gsfgWarehouse.SortColumn(V.Local.iCol,0)
+	Gui.Form1.txtShape.SetFocus
+F.Intrinsic.Control.EndIf
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("gsfgwarehouse_mousedown_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_WareHouse_Maint.gas",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+	F.Intrinsic.Control.CallSub(Form1_unload)
+Function.Intrinsic.Control.EndIf
+
+
+program.sub.gsfgwarehouse_mousedown.end
+
+
