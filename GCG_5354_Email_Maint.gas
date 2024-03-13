@@ -1,0 +1,389 @@
+Program.Sub.ScreenSU.Start
+gui.Form1..create
+gui.Form1..caption("Email Recipients")
+gui.Form1..size(7350,7890)
+gui.Form1..minx(0)
+gui.Form1..miny(0)
+gui.Form1..position(0,0)
+gui.Form1..event(unload,form1_unload)
+gui.Form1..alwaysontop(False)
+gui.Form1..fontname("Arial")
+gui.Form1..fontsize(8)
+gui.Form1..forecolor(0)
+gui.Form1..fontstyle(,,,,)
+gui.Form1..BackColor(-2147483633)
+gui.Form1..controlbox(True)
+gui.Form1..maxbutton(True)
+gui.Form1..minbutton(True)
+gui.Form1..mousepointer(0)
+gui.Form1..moveable(True)
+gui.Form1..sizeable(True)
+gui.Form1..ShowInTaskBar(True)
+gui.Form1..titlebar(True)
+gui.Form1.lblName.create(label,"Name",True,1935,255,1,200,200,True,0,Arial,8,-2147483633,0)
+gui.Form1.lblName.defaultvalue("")
+gui.Form1.lblName.controlgroup(0)
+gui.Form1.txtName.create(textbox,"",True,3495,300,0,200,500,True,0,Arial,8,-2147483643,1)
+gui.Form1.txtName.maxLength(30)
+gui.Form1.txtName.defaultvalue("")
+gui.Form1.txtName.controlgroup(0)
+gui.Form1.lblEmail.create(label,"Email Address",True,1935,255,1,200,955,True,0,Arial,8,-2147483633,0)
+gui.Form1.lblEmail.defaultvalue("")
+gui.Form1.lblEmail.controlgroup(0)
+gui.Form1.txtEmail.create(textbox,"",True,4590,300,0,200,1255,True,0,Arial,8,-2147483643,1)
+gui.Form1.txtEmail.maxLength(100)
+gui.Form1.txtEmail.defaultvalue("")
+gui.Form1.txtEmail.controlgroup(0)
+gui.Form1.cmdAdd.create(button)
+gui.Form1.cmdAdd.caption("Add")
+gui.Form1.cmdAdd.visible(True)
+gui.Form1.cmdAdd.size(855,375)
+gui.Form1.cmdAdd.zorder(0)
+gui.Form1.cmdAdd.position(200,1755)
+gui.Form1.cmdAdd.enabled(True)
+gui.Form1.cmdAdd.fontname("Arial")
+gui.Form1.cmdAdd.fontsize(8)
+gui.Form1.cmdAdd.event(click,cmdadd_click)
+gui.Form1.cmdAdd.defaultvalue("")
+gui.Form1.cmdAdd.controlgroup(0)
+gui.Form1.gsfgEmail.create(gsflexgrid)
+gui.Form1.gsfgEmail.FixedRows(0)
+gui.Form1.gsfgEmail.FixedCols(0)
+gui.Form1.gsfgEmail.visible(True)
+gui.Form1.gsfgEmail.size(6870,5025)
+gui.Form1.gsfgEmail.zorder(0)
+gui.Form1.gsfgEmail.position(100,2200)
+gui.Form1.gsfgEmail.enabled(True)
+gui.Form1.gsfgEmail.event(mousedown,gsfgemail_mousedown)
+gui.Form1.gsfgEmail.event(commandclick,gsfgemail_commandclick)
+
+
+Program.Sub.ScreenSU.End
+
+Program.Sub.Preflight.Start
+
+Program.Sub.Preflight.End
+
+Program.Sub.Main.Start
+'BN, Jan 15, 2018
+'This project is a modification of project 1157.
+'The old scripts are: GCG_Email_Maint.gas, GCG_SpreadSheet.gas, GCG_WareHouse_Maint.gas 
+'Project number 5354 are added to new scripts name.
+
+'Project 5354 features added:
+'User can select Customers to run the report.
+'Customers Default Selection are stored in GCG_5354_Customers
+
+F.Intrinsic.Control.SetErrorHandler("Main_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+'Variable for SQL Query
+V.Local.sSQL.Declare(String)
+'Variable for Row Count.
+V.Local.iRow.Declare(Long)
+'Open Connection to database
+F.ODBC.Connection!conx.OpenConnection(V.Ambient.PDSN,V.Ambient.PUser,V.Ambient.PPass)
+'Call sub BuildStyle
+F.Intrinsic.Control.CallSub(Buildstyle)
+'Set SQL Query
+V.Local.sSQL.Set("Select Name, Email_Address From GCG_Email_Maint")
+'Open Connection to record Set
+F.ODBC.Connection!conx.OpenLocalRecordsetRO("rst",V.Local.sSQL)
+'Check to see if there are records
+F.Intrinsic.Control.If(V.ODBC.conx!rst.EOF,!=,True)
+	'If there are records load them into the flexgrid
+	Gui.Form1.gsfgEmail.LoadRecordset("conx!rst",2)
+	'Get row count of flexgrid
+	V.Local.iRow.Set(V.Screen.Form1!gsfgEmail.Rows)
+	'Subtract 1 due to blank line
+	F.Intrinsic.Math.Sub(V.Local.iRow,1,V.Local.iRow)
+	'Update flexgrid to remove blank line
+	Gui.Form1.gsfgEmail.Rows(V.Local.iRow)
+F.Intrinsic.Control.Else
+	'Get row count of flexgrid
+	V.Local.iRow.Set(V.Screen.Form1!gsfgEmail.Rows)
+	'subtract 1 for blank row
+	F.Intrinsic.Math.Sub(V.Local.iRow,1,V.Local.iRow)
+	'Update flexgrid to remove blank row
+	Gui.Form1.gsfgEmail.Rows(V.Local.iRow)
+F.Intrinsic.Control.EndIf
+
+'Show Form 1
+Gui.Form1..Show
+'Set focus to the name textbox
+Gui.Form1.txtName.SetFocus
+'Close connection to the record set.
+F.ODBC.conx!rst.Close
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("Main_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_Email_Maint.gas",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+	F.Intrinsic.Control.CallSub(Form1_unload)
+Function.Intrinsic.Control.EndIf
+
+
+Program.Sub.Main.End
+
+program.sub.form1_unload.start
+F.Intrinsic.Control.SetErrorHandler("form1_unload_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+'Close Connection
+F.ODBC.Connection!conx.Close
+'End program.
+F.Intrinsic.Control.End
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("form1_unload_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_Email_Maint.gas",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+	F.Intrinsic.Control.End
+Function.Intrinsic.Control.EndIf
+
+
+program.sub.form1_unload.end
+
+program.sub.cmdadd_click.start
+F.Intrinsic.Control.SetErrorHandler("cmdadd_click_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+V.Local.sSql.Declare(String)
+'Variable to hold row count.
+V.Local.iRow.Declare(Long)
+'Variable to hold Rec ID
+V.Local.iRec.Declare(Long)
+
+'Get the number of rows in the flexgrid
+V.Local.iRow.Set(V.Screen.Form1!gsfgEmail.Rows)
+'Add 1 to row count so blank line can be added for input
+F.Intrinsic.Math.Add(V.Local.iRow,1,V.Local.iRow)
+'Check to make sure a Name was entered
+F.Intrinsic.Control.If(V.Screen.Form1!txtName.Text,!=,"")
+	'Check to make sure an email address was entered.
+	F.Intrinsic.Control.If(V.Screen.Form1!txtEmail.Text,!=,"")
+		'Add blank row to Flexgrid
+		Gui.Form1.gsfgEmail.Rows(V.Local.iRow)
+		'Subtract 1 from count to get the ordinal of the row
+		F.Intrinsic.Math.Sub(V.Local.iRow,1,V.Local.iRow)
+		'Save the Name to the flexgrid
+		Gui.Form1.gsfgEmail.TextMatrix(0,V.Local.iRow,V.Screen.Form1!txtName.Text)
+		'Save the email address to the flexgrid
+		Gui.Form1.gsfgEmail.TextMatrix(1,V.Local.iRow,V.Screen.Form1!txtEmail.Text)
+		'Apply style 2 to the new row
+		Gui.Form1.gsfgEmail.ApplyStyle(V.Local.iRow,2)
+		'Set SQL Query
+		V.Local.sSql.Set("Select * From GCG_Email_Maint")
+		'Open Record Set
+		F.ODBC.Connection!conx.OpenLocalRecordsetRW("rst",V.Local.sSql)
+		'Get ID Value
+		f.ODBC.Connection!conx.GetID("GCG_Email_Maint","ID",True,v.Local.iRec)
+		'Add New record
+		F.ODBC.conx!rst.AddNew
+		'Save name to new record
+		F.ODBC.conx!rst.Set!Name(V.Screen.Form1!txtName.Text)
+		'Save Email Address
+		F.ODBC.conx!rst.Set!Email_Address(V.Screen.Form1!txtEmail.Text)
+		'Save the ID
+		F.ODBC.conx!rst.Set!ID(V.Local.iRec)
+		'Update the Record
+		F.ODBC.conx!rst.Update
+		'Clear the name Text box
+		 Gui.Form1.txtName.Text("")
+		'Clear the Email Address Textbox
+		Gui.Form1.txtEmail.Text("")
+		'Set Focus to the Name TextBox
+		Gui.Form1.txtName.SetFocus
+	F.Intrinsic.Control.Else
+		'Prompt user that an email address is needed. If text box is blank
+		F.Intrinsic.UI.Msgbox("Please enter an Email Address.","Email Address Missing")
+		'Set Focus to Email textbox
+		Gui.Form1.txtEmail.SetFocus
+		F.Intrinsic.Control.ExitSub
+	F.Intrinsic.Control.EndIf
+F.Intrinsic.Control.Else
+	'Prompt user that a Name is needed.  If text box is blank
+	F.Intrinsic.UI.Msgbox("Please enter a Name.","Name Missing")
+	'Set focus to Name text box
+	Gui.Form1.txtName.SetFocus
+	F.Intrinsic.Control.ExitSub
+F.Intrinsic.Control.EndIf
+'Close Connection to record set.
+F.ODBC.conx!rst.Close
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("cmdadd_click_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_Email_Maint.gas",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+	F.Intrinsic.Control.CallSub(Form1_unload)
+Function.Intrinsic.Control.EndIf
+
+
+program.sub.cmdadd_click.end
+
+program.sub.gsfgemail_commandclick.start
+F.Intrinsic.Control.SetErrorHandler("gsfgemail_commandclick_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+
+
+
+'Variable for Current Row selected
+V.Local.iRow.Declare(Long)
+'Variable for Name
+V.Local.sName.Declare(String)
+'Variable for Email address
+V.Local.sEmail.Declare(String)
+'Variable for SQL Query
+V.Local.sSql.Declare(String)
+'Set the current row to Variable
+V.Local.iRow.Set(V.Screen.Form1!gsfgEmail.Row)
+'Save name to Variable
+Gui.Form1.gsfgEmail.GetTextMatrix(0,V.Local.iRow,V.Local.sName)
+'Save Email Address to variable
+Gui.Form1.gsfgEmail.GetTextMatrix(1,V.Local.iRow,V.Local.sEmail)
+'Set SQL Query
+F.Intrinsic.String.Concat("Select * From GCG_Email_Maint Where Name = '",V.Local.sName,"' and Email_Address = '",V.Local.sEmail,"'",V.Local.sSql)
+'Open connection to record set
+F.ODBC.Connection!conx.OpenLocalRecordsetRW("rst",V.Local.sSql)
+'Delete the record
+F.ODBC.conx!rst.Delete
+'Update the record
+F.ODBC.conx!rst.Update
+'close connection to record set
+F.ODBC.conx!rst.Close
+'Subtract 1 from the count to get the right Ordinal
+F.Intrinsic.Math.Sub(V.Local.iRow,1,V.Local.iRow)
+'Delete the row
+Gui.Form1.gsfgEmail.DeleteRow(v.Local.iRow)
+'Set focus to the Name Textbox
+Gui.Form1.txtName.SetFocus
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("gsfgemail_commandclick_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_Email_Maint.gas",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+	F.Intrinsic.Control.CallSub(Form1_unload)
+Function.Intrinsic.Control.EndIf
+
+
+program.sub.gsfgemail_commandclick.end
+
+Program.Sub.BuildStyle.Start
+F.Intrinsic.Control.SetErrorHandler("BuildStyle_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+'Set the flexgrid to have 3 columns with 2 rows.  One of the rows will be fixed to hold the titles.
+Gui.Form1.gsfgEmail.Cols(3)
+Gui.Form1.gsfgEmail.Rows(2)
+Gui.Form1.gsfgEmail.FixedRows(1)
+
+'Set the amount of space each column will take up in the flexgrid.
+Gui.Form1.gsfgEmail.SetColumnPercentages(".40:.40:.20")
+
+'Build Style
+'Column 0
+'Style 1
+Gui.Form1.gsfgEmail.BuildStyle(1,0,"Type","Locked",True)
+Gui.Form1.gsfgEmail.BuildStyle(1,0,"Fontstyle","Bold",True)
+Gui.Form1.gsfgEmail.BuildStyle(1,0,"Format","Alignment",4)
+
+'Style 2
+Gui.Form1.gsfgEmail.BuildStyle(2,0,"Type","Locked",True)
+Gui.Form1.gsfgEmail.BuildStyle(2,0,"Format","Alignment",2)
+
+'Column 1
+'Style 1
+Gui.Form1.gsfgEmail.BuildStyle(1,1,"Type","Locked",True)
+Gui.Form1.gsfgEmail.BuildStyle(1,1,"Fontstyle","Bold",True)
+Gui.Form1.gsfgEmail.BuildStyle(1,1,"Format","Alignment",4)
+
+'Style 2
+Gui.Form1.gsfgEmail.BuildStyle(2,1,"Type","Locked",True)
+Gui.Form1.gsfgEmail.BuildStyle(2,1,"Format","Alignment",2)
+
+'Column 2
+'Style 1
+Gui.Form1.gsfgEmail.BuildStyle(1,2,"Type","Locked",True)
+Gui.Form1.gsfgEmail.BuildStyle(1,2,"Fontstyle","Bold",True)
+Gui.Form1.gsfgEmail.BuildStyle(1,2,"Format","Alignment",4)
+
+'Style 2
+Gui.Form1.gsfgEmail.BuildStyle(2,2,"Format","Alignment",4)
+Gui.Form1.gsfgEmail.BuildStyle(2,2,"Type","Command","Delete")
+
+'Apply Style 1 to row 0
+Gui.Form1.gsfgEmail.ApplyStyle(0,1)
+'Apply Style 2 to row 1
+Gui.Form1.gsfgEmail.ApplyStyle(1,2)
+
+'Set the Titles for the Flex Grid
+Gui.Form1.gsfgEmail.TextMatrix(0,0,"Name")
+Gui.Form1.gsfgEmail.TextMatrix(1,0,"Email Address")
+'Gui.Form1.gsfgEmail.TextMatrix(2,0,"Delete")
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("BuildStyle_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_Email_Maint.gas",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+	F.Intrinsic.Control.CallSub(Form1_unload)
+Function.Intrinsic.Control.EndIf
+
+
+Program.Sub.BuildStyle.End
+
+program.sub.gsfgemail_mousedown.start
+F.Intrinsic.Control.SetErrorHandler("gsfgemail_mousedown_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+'Variable to hold Column
+V.Local.iCol.Declare(Long)
+'Varialble to hold Row count
+V.Local.iRow.Declare(Long)
+'Set row count
+V.Local.iRow.Set(V.Screen.Form1!gsfgEmail.Rows)
+'Check to see if the flexgrid has more than 2 rows
+F.Intrinsic.Control.If(V.Local.iRow,>,2)
+	'Subtract 1 from count to get ordinal
+	F.Intrinsic.Math.Sub(V.Local.iRow,1,V.Local.iRow)
+	'Save column clicked
+	V.Local.iCol.Set(V.Screen.Form1!gsfgEmail.Col)
+	'Make sure column 2 was not clicked and only row 0 is clicked
+	F.Intrinsic.Control.If(V.Local.iCol,=,2,"or",V.Args.MouseRow,!=,0)
+		Gui.Form1.txtName.SetFocus
+		F.Intrinsic.Control.ExitSub
+	F.Intrinsic.Control.EndIf
+	'Sort the grid based on the column clicked
+	Gui.Form1.gsfgEmail.SortColumn(V.Local.iCol,0)
+	Gui.Form1.txtName.SetFocus
+F.Intrinsic.Control.EndIf
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("gsfgemail_mousedown_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_Email_Maint.gas",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+	F.Intrinsic.Control.CallSub(Form1_unload)
+Function.Intrinsic.Control.EndIf
+
+
+program.sub.gsfgemail_mousedown.end
+
+
