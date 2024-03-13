@@ -1,0 +1,2 @@
+CREATE TABLE "GCG_5354_Customers" (
+ "Customer" CHAR(6) );
