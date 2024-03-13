@@ -1,0 +1,102 @@
+Program.Sub.ScreenSU.Start
+Gui.Form..Create
+Gui.Form..Caption("Frito Lay - Default Customer Selection")
+Gui.Form..Size(8355,2445)
+Gui.Form..MinX(0)
+Gui.Form..MinY(0)
+Gui.Form..Position(0,0)
+Gui.Form..BackColor(-2147483633)
+Gui.Form..MousePointer(0)
+Gui.Form..Event(UnLoad,Form_UnLoad)
+Gui.Form.lbl1.Create(Label,"Customer Number (Comma delimited)",True,3255,255,0,45,195,True,0,"Arial",8,-2147483633,0)
+Gui.Form.txtCustList.Create(TextBoxR)
+Gui.Form.txtCustList.Size(8010,1050)
+Gui.Form.txtCustList.Position(90,405)
+Gui.Form.cmdSave.Create(Button)
+Gui.Form.cmdSave.Size(855,375)
+Gui.Form.cmdSave.Position(105,1515)
+Gui.Form.cmdSave.Caption("Save")
+Gui.Form.cmdSave.Event(Click,cmdSave_Click)
+Program.Sub.ScreenSU.End
+
+Program.Sub.Preflight.Start
+Program.Sub.Preflight.End
+
+Program.Sub.Main.Start
+'BN, Jan 15, 2018
+'This project is a modification of project 1157.
+'The old scripts are: GCG_Email_Maint.gas, GCG_SpreadSheet.gas, GCG_WareHouse_Maint.gas 
+'Project number 5354 are added to new scripts name.
+
+'Project 5354 features added:
+'User can select Customers to run the report.
+'Customers Default Selection are stored in GCG_5354_Customers
+f.Intrinsic.Control.Try
+	v.Local.sError.Declare
+	v.Local.sRet.Declare
+	
+	F.ODBC.Connection!conx.OpenCompanyConnection
+	'Get default Customer List
+	f.ODBC.Connection!conx.ExecuteAndReturn("Select Customer from GCG_5354_Customers order by Customer",v.Local.sRet)
+	f.Intrinsic.Control.If(v.Local.sRet,<>,"")
+		f.Intrinsic.String.Replace(v.Local.sRet,"#$#",",",v.Local.sRet)
+		gui.Form.txtCustList.Text(v.Local.sRet)
+	f.Intrinsic.Control.EndIf
+	
+	gui.Form..Show
+
+F.Intrinsic.Control.Catch
+	Function.Intrinsic.String.Build("Subroutine Error {0}{0}Subroutine: {1}{0}Error Occurred {2} with description {3}",V.Ambient.Newline,V.Ambient.CurrentSubroutine,V.Ambient.ErrorNumber,V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+	F.Intrinsic.Control.End	
+F.Intrinsic.Control.EndTry
+Program.Sub.Main.End
+
+Program.Sub.cmdSave_Click.Start
+f.Intrinsic.Control.Try
+	v.Local.sError.Declare
+	v.Local.sCustomers.Declare
+	v.Local.iCnt.Declare
+	v.Local.sSQL.Declare
+	
+	
+	f.Intrinsic.Control.If(v.Screen.Form!txtCustList.Text.Trim,=,"")
+		f.Intrinsic.UI.Msgbox("No Customer Selected")
+		f.Intrinsic.Control.CallSub("Unload")
+	f.Intrinsic.Control.Else
+		f.Intrinsic.UI.InvokeWaitDialog("Saving...")
+		f.ODBC.Connection!conx.Execute("Delete from GCG_5354_Customers")
+		f.Intrinsic.String.Split(v.Screen.Form!txtCustList.Text.Trim,",",v.Local.sCustomers)
+		f.Intrinsic.Control.For(v.Local.iCnt,0,v.Local.sCustomers.UBound,1)
+			f.Intrinsic.String.Build("Insert into GCG_5354_Customers values('{0}')",v.Local.sCustomers(v.Local.iCnt).Trim,v.Local.sSQL)
+			f.ODBC.Connection!conx.Execute(v.Local.sSQL)
+		f.Intrinsic.Control.Next(v.Local.iCnt)		
+		f.Intrinsic.UI.CloseWaitDialog
+	f.Intrinsic.Control.EndIf
+	
+	
+F.Intrinsic.Control.Catch
+	Function.Intrinsic.String.Build("Subroutine Error {0}{0}Subroutine: {1}{0}Error Occurred {2} with description {3}",V.Ambient.Newline,V.Ambient.CurrentSubroutine,V.Ambient.ErrorNumber,V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+	F.Intrinsic.Control.End	
+F.Intrinsic.Control.EndTry
+Program.Sub.cmdSave_Click.End
+
+Program.Sub.Form_UnLoad.Start
+f.Intrinsic.Control.Try
+	v.Local.sError.Declare
+
+	'Close connection to database
+	F.Intrinsic.Control.If(V.ODBC.conx.State,=,1)
+		F.ODBC.Connection!conx.close
+	F.Intrinsic.Control.EndIf
+
+	'End program.
+	F.Intrinsic.Control.End
+
+F.Intrinsic.Control.Catch
+	Function.Intrinsic.String.Build("Subroutine Error {0}{0}Subroutine: {1}{0}Error Occurred {2} with description {3}",V.Ambient.Newline,V.Ambient.CurrentSubroutine,V.Ambient.ErrorNumber,V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+	F.Intrinsic.Control.End	
+F.Intrinsic.Control.EndTry
+Program.Sub.Form_UnLoad.End
