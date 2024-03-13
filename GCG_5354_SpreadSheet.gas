@@ -1,0 +1,973 @@
+﻿Program.Sub.ScreenSU.Start
+Gui.Form..Create
+Gui.Form..Caption("PEPSI CO Customer Selection")
+Gui.Form..Size(7830,2220)
+Gui.Form..MinX(0)
+Gui.Form..MinY(0)
+Gui.Form..Position(0,0)
+Gui.Form..BackColor(-2147483633)
+Gui.Form..MousePointer(0)
+Gui.Form..Event(UnLoad,Form_UnLoad)
+Gui.Form.txtCustList.Create(TextBoxR)
+Gui.Form.txtCustList.Size(7500,900)
+Gui.Form.txtCustList.Position(45,345)
+Gui.Form.lbl1.Create(Label,"Customer Number (Comma delimited)",True,3045,255,0,45,135,True,0,"Arial",8,-2147483633,0)
+Gui.Form.cmdOK.Create(Button)
+Gui.Form.cmdOK.Size(855,375)
+Gui.Form.cmdOK.Position(30,1305)
+Gui.Form.cmdOK.Caption("OK")
+Gui.Form.cmdOK.Event(Click,cmdOK_Click)
+Program.Sub.ScreenSU.End
+
+Program.Sub.Preflight.Start
+Variable.UDT.uShape.Define("sShape",String,Shape_Code)
+Variable.UDT.uShape.Define("sCustCode",String,Cust_SP_Code)
+Variable.UDT.uShape.Define("sWarehouse",String,Warehouse)
+Variable.uGlobal.uShape.Declare("uShape")
+Variable.UDT.uExcel.Define("sPart",String,Part)
+Variable.UDT.uExcel.Define("sLocation",String,Location)
+Variable.UDT.uExcel.Define("sDesc",String,Description)
+Variable.UDT.uExcel.Define("sShapeC",String,Code_RM_Shape)
+Variable.UDT.uExcel.Define("sCustSKU",String,Customer_Part)
+Variable.UDT.uExcel.Define("sCustomer",String,Customer)
+Variable.UDT.uExcel.Define("sCustCode",String)
+Variable.UDT.uExcel.Define("iPrice",Float)
+Variable.UDT.uExcel.Define("sWarehouse",String)
+Variable.UDT.uExcel.Define("sNotes",String)
+Variable.UDT.uExcel.Define("iYTDQtyShip",Float)
+Variable.UDT.uExcel.Define("iCurInv",Float)
+Variable.UDT.uExcel.Define("iCurInvDollar",Float)
+Variable.UDT.uExcel.Define("iWipQty",Float)
+Variable.UDT.uExcel.Define("iWipInvDollar",Float)
+Variable.UDT.uExcel.Define("iYTDQtyDollar",Float)
+Variable.UDT.uExcel.Define("dWipDate",Date)
+Variable.UDT.uExcel.Define("iQtyOnHand",Float,Qty_Onhand)
+Variable.UDT.uExcel.Define("iQtyOrder",Float,Qty_Order)
+Variable.UDT.uExcel.Define("iQtyOrderPO",Float,Qty_Onorder_PO)
+Variable.UDT.uExcel.Define("iQtyOrderWO",Float,Qty_Onorder_WO)
+Variable.UDT.uExcel.Define("iQtyReorder",Float,Qty_Reorder)
+Variable.UDT.uExcel.Define("iQtyReq",Float,Qty_Required)
+Variable.UDT.uExcel.Define("sUM",String,Code_BOM)
+Variable.uGlobal.uExcel.Declare("uExcel")
+Variable.UDT.uKit.Define("sPart",String,Part)
+Variable.UDT.uKit.Define("iNet",Float)
+Variable.UDT.uKit.Define("iQtyOnHand",Float,Qty_OnHand)
+Variable.UDT.uKit.Define("iTotal",Float)
+Variable.UDT.uKit.Define("sLocation",String,Location)
+Variable.UDT.uKit.Define("iQtyReq",Float,Qty_Required)
+Variable.UDT.uKit.Define("iBOMQty",Float,Quantity)
+Variable.UDT.uKit.Define("iQtyWO",Float,Qty_OnOrder_WO)
+Variable.UDT.uKit.Define("iQtyPO",Float,Qty_OnOrder_PO)
+Variable.UDT.uKit.Define("iWIPQty",Float)
+Variable.UDT.uKit.Define("iOnWater",Float)
+Variable.UDT.uKit.Define("dWIPDate",Date)
+Variable.uGlobal.uKit.Declare("uKit")
+
+Variable.UDT.uWipDate.Define("dWipDate",String)
+Variable.uGlobal.uWipDate.Declare("uWipDate")
+Variable.UDT.uEmail.Define("sName",String,Name)
+Variable.UDT.uEmail.Define("sEmail",String,Email_Address)
+Variable.uGlobal.uEmail.Declare("uEmail")
+Variable.Global.sAttach.Declare(String)
+Variable.UDT.uChild.Define("sPart",String,Part)
+Variable.UDT.uChild.Define("dWIPDate",Date)
+Variable.uGlobal.uChild.Declare("uChild")
+Program.Sub.Preflight.End
+
+Program.Sub.Main.Start
+'BN, Jan 15, 2018
+'This project is a modification of project 1157.
+'The old scripts are: GCG_Email_Maint.gas, GCG_SpreadSheet.gas, GCG_WareHouse_Maint.gas 
+'Project number 5354 are added to new scripts name.
+
+'Project 5354 features added:
+'User can select Customers to run the report.
+'Customers Default Selection are stored in GCG_5354_Customers
+
+'Edited 12/10/2021 by SS to have the script work in 2020.1 of GSS and also fix Price issue.
+F.Intrinsic.Control.SetErrorHandler("Main_Err")
+F.Intrinsic.Control.ClearErrors
+v.Local.sError.Declare
+v.Local.sRet.Declare
+
+F.ODBC.Connection!conx.OpenConnection(V.Ambient.PDSN,V.Ambient.PUser,V.Ambient.PPass)
+'Get default Customer List
+f.ODBC.Connection!conx.ExecuteAndReturn("Select Customer from GCG_5354_Customers order by Customer",v.Local.sRet)
+f.Intrinsic.Control.If(v.Local.sRet,<>,"")
+	f.Intrinsic.String.Replace(v.Local.sRet,"#$#",",",v.Local.sRet)
+	f.Intrinsic.String.Replace(v.Local.sRet,"*!*","",v.Local.sRet)
+	gui.Form.txtCustList.Text(v.Local.sRet)
+f.Intrinsic.Control.EndIf
+
+f.Intrinsic.Control.If(v.Caller.Switches,=,"O")
+	'Run from menu item
+	gui.Form..Show
+f.Intrinsic.Control.Else
+	'Run from Task Scheduler
+	f.Intrinsic.Control.CallSub("cmdOK_Click")
+f.Intrinsic.Control.EndIf
+
+
+F.Intrinsic.Control.Label("Main_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_SpreadSheet.gas",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.Debug.SetLA(V.Local.sError)	
+Function.Intrinsic.Control.EndIf
+Program.Sub.Main.End
+
+Program.Sub.cmdOK_Click.Start
+F.Intrinsic.Control.SetErrorHandler("cmdOK_Click")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+
+f.Intrinsic.Control.If(v.Screen.Form!txtCustList.Text.Trim,=,"")
+	f.Intrinsic.UI.Msgbox("No Customer Selected")
+	f.Intrinsic.Control.CallSub("Unload")
+f.Intrinsic.Control.EndIf
+
+V.uGlobal.uExcel.Redim(-1,-1)
+
+f.Intrinsic.UI.InvokeWaitDialog("Generating PEPSI CO report...")
+'F.Intrinsic.Control.CallSub(WriteLog,"Content","Entering LoadUDT Sub.")
+F.Intrinsic.Control.CallSub(Loadudt)
+'F.Intrinsic.Control.CallSub(WriteLog,"Content","Entering CurrentInv Sub.")
+F.Intrinsic.Control.CallSub(Currentinv)
+'F.Intrinsic.Control.CallSub(WriteLog,"Content","Entering Environment Sub.")
+F.Intrinsic.Control.CallSub(Environment)
+'F.Intrinsic.Control.CallSub(WriteLog,"Content","Entering MSExcell Sub.")
+F.Intrinsic.Control.CallSub(Msexcell)
+'F.Intrinsic.Control.CallSub(WriteLog,"Content","Entering Email Sub.")
+F.Intrinsic.Control.CallSub(Email)
+'F.Intrinsic.Control.CallSub(WriteLog,"Content","Entering UnLoad Sub.")
+F.Intrinsic.Control.CallSub(Unload)
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("cmdOK_Click")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_SpreadSheet.gas",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.Debug.SetLA(V.Local.sError)
+	
+Function.Intrinsic.Control.EndIf
+Program.Sub.cmdOK_Click.End
+
+Program.Sub.Form_UnLoad.Start
+'F.Intrinsic.Control.If(V.DataTable.dtShape.Exists)
+'	F.Data.DataTable.Close("dtShape")
+'F.Intrinsic.Control.EndIf
+
+F.Intrinsic.Control.CallSub(Unload)
+Program.Sub.Form_UnLoad.End
+
+Program.Sub.MSExcell.Start
+F.Intrinsic.Control.SetErrorHandler("MSExcell_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+'Variable for File Dir
+V.Local.sDir.Declare(String)
+'Variable for File string
+V.Local.sFile.Declare(String)
+'Variable for excel output
+V.Local.sLine.Declare(String)
+'variable for SKU
+V.Local.sSku.Declare(String)
+'Variable for Date
+V.Local.dDate.Declare(Date)
+V.Local.sWipDate.Declare(String)
+V.Local.dCompDate.Declare(Date)
+'Loop counter
+V.Local.iCount.Declare(Long)
+'Variable to hold formatted price
+V.Local.iPrice.Declare(String)
+'Variable to hold formatted inventory dollars
+V.Local.sInvDollar.Declare(String)
+'variable to hold formatted WIP dollars
+V.Local.sWipDollar.Declare(String)
+'Variable to hold YTD dollars
+V.Local.sYTDDollar.Declare(String)
+V.Local.sTemp.Declare(String)
+
+'Variable for MSExcel
+V.Local.bRet.Declare(Boolean)
+'Variable for OpenOffice
+V.Local.bRet2.Declare(Boolean)
+
+
+'Set Global Dir
+V.Local.sDir.Set(V.Caller.GlobalDir)
+'Set Date
+V.Local.dDate.Set(V.Ambient.Date)
+'Add Report directory to global path
+F.Intrinsic.String.Concat(V.Local.sDir,"\Plugins\PepsiCo Inv Reports\",V.Local.sDir)
+
+F.Intrinsic.String.Concat(V.Local.sDir,"\PepsoCoReportTemplate.xlsx",V.Local.sTemp)
+'Save file name to local variable
+F.Intrinsic.String.Concat(V.Local.sDir,"PepsiCo_Inv_Report",V.Local.dDate.PervasiveDate,".xlsx",V.Local.sFile)
+'Save file name to global variable
+F.Intrinsic.String.Concat("PepsiCo_Inv_Report",V.Local.dDate.PervasiveDate,".xlsx",V.Global.sAttach)
+'Sort report by customer SKU Smallest first
+F.Intrinsic.Variable.UDTMultiQuickSort(V.uGlobal.uExcel!sCustSKU,False)
+'Set column titles
+V.Local.sLine.Set("UDFC Part Number*!*Vendor Code*!*SKU*!*Customer SKU*!*Customer Specified Code*!*Description*!*Case Pack*!*Current Price*!*Minimum Inventory*!*Run Quantity*!*Current Inventory*!*Current Inventory Dollars*!*WIP Quantity*!*Warehouse*!*WIP Inventory Dollars*!* WIP have Ready Date*!*Notes*!*YTD Qty Shipped*!*YTD Qty Dollars$!$")
+
+'Loop through uExcel to get information for each part.
+F.Intrinsic.Control.For(V.Local.iCount,0,V.uGlobal.uExcel.UBound,1)
+	'Save SKU
+	F.Intrinsic.String.Mid(V.uGlobal.uExcel(v.Local.iCount)!sCustSKU,3,7,V.Local.sSku)
+	'Format Price
+	F.Intrinsic.String.Format(V.uGlobal.uExcel(v.Local.iCount)!iPrice,"$#######.00",V.Local.iPrice.String)
+	'Format inventory dollars
+	F.Intrinsic.String.Format(V.uGlobal.uExcel(v.Local.iCount)!iCurInvDollar,"$#######.00",V.Local.sInvDollar.String)
+	'Format WIP Dollars
+	F.Intrinsic.String.Format(V.uGlobal.uExcel(v.Local.iCount)!iWipInvDollar,"$#######.00",V.Local.sWipDollar.String)
+	'Format YTD dollars
+	F.Intrinsic.String.Format(V.uGlobal.uExcel(v.Local.iCount)!iYTDQtyDollar,"$#######.00",V.Local.sYTDDollar.String)
+	
+	V.Local.dDate.Set(V.uGlobal.uExcel(v.Local.iCount)!dWipDate)
+	F.Intrinsic.Date.ConvertDString("01011901","MM/DD/YYYY",V.Local.dCompDate)
+	F.Intrinsic.Control.If(V.Local.dDate,<,V.Local.dCompDate)
+		V.Local.sWipDate.Set("")
+	F.Intrinsic.Control.Else
+		V.Local.sWipDate.Set(V.Local.dDate)
+	F.Intrinsic.Control.EndIf
+	'Save each row to sLine
+	F.Intrinsic.String.Concat(V.local.sLine,"'",V.uGlobal.uExcel(v.Local.iCount)!sPart,"*!*U*!*'",V.Local.sSku,"*!*'",V.uGlobal.uExcel(v.Local.iCount)!sCustSKU,"*!*",V.uGlobal.uExcel(v.Local.iCount)!sCustCode,"*!*'",V.uGlobal.uExcel(v.Local.iCount)!sDesc,"*!* *!*",V.Local.iPrice.String,"*!*",V.uGlobal.uExcel(v.Local.iCount)!iQtyReorder,"*!*",V.Local.sLine)
+	F.Intrinsic.String.Concat(V.Local.sLine,V.uGlobal.uExcel(v.Local.iCount)!iQtyOrder,"*!*",V.uGlobal.uExcel(v.Local.iCount)!iCurInv,"*!*",V.Local.sInvDollar.String,"*!*",V.uGlobal.uExcel(v.Local.iCount)!iWipQty,"*!*",V.uGlobal.uExcel(v.Local.iCount)!sWarehouse,"*!*",V.Local.sLine)
+	F.Intrinsic.String.Concat(V.Local.sLine,V.Local.sWipDollar.String,"*!*",V.Local.sWipDate,"*!*",V.uGlobal.uExcel(v.Local.iCount)!sNotes,"*!*",V.uGlobal.uExcel(v.Local.iCount)!iYTDQtyShip,"*!*",V.Local.sYTDDollar.String,"$!$",V.Local.sLine)
+'F.Intrinsic.Debug.ToggleOutputListing
+'F.Intrinsic.Debug.DumpVariableList
+'Loop to next part
+F.Intrinsic.Control.Next(V.Local.iCount)
+'Check to see if MS Excel is installed
+F.Automation.MSExcel.CheckPresence(V.Local.bRet)
+'Check to see if Open Office is installed
+F.Automation.OOGeneral.CheckPresence(V.Local.bRet2)
+'If excel is installed write to that spreadsheet
+F.Intrinsic.Control.If(V.Local.bRet,=,True)
+	F.Automation.MSExcel.WriteSpreadsheet(V.Local.sFile,V.Local.sTemp,V.Local.sLine)
+'Else if open office is installed write to that spreadsheet
+F.Intrinsic.Control.ElseIf(V.Local.bRet2,=,True)
+	F.Automation.OOCalc.WriteSpreadsheet(V.Local.sFile,True,V.Local.sLine)
+'Else call unload sub
+F.Intrinsic.Control.Else
+	F.Intrinsic.Control.CallSub(Unload)
+F.Intrinsic.Control.Endif
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("MSExcell_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_SpreadSheet.gas",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.Debug.SetLA(V.Local.sError)
+	F.Intrinsic.Control.CallSub(Unload)
+Function.Intrinsic.Control.EndIf
+
+Program.Sub.MSExcell.End
+
+Program.Sub.LoadUDT.Start
+F.Intrinsic.Control.SetErrorHandler("LoadUDT_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+V.Local.sSql.Declare(String)
+V.Local.sCase.Declare(String)
+V.Local.sPart.Declare(String)
+V.Local.sCust.Declare(String)
+V.Local.sNotes.Declare(String)
+V.Local.sYear.Declare(String)
+V.Local.sMinDate.Declare(String)
+V.Local.sLocation.Declare(String)
+V.Local.sRet.Declare(String)
+V.Local.sUM.Declare(String)
+V.Local.iCount.Declare(Long)
+V.Local.iCount2.Declare(Long)
+V.Local.iCount3.Declare(Long)
+V.Local.sQtyShip.Declare(String)
+V.Local.dDate.Declare(Date)
+V.Local.dCurDate.Declare(Date)
+V.Local.dWipDate.Declare(Date)
+V.Local.dWODate.Declare(Date)
+V.Local.dWaterDate.Declare(Date)
+'Set the date ranges for current date and the beginning of the year
+V.Local.dDate.Set(V.Ambient.Date)
+V.Local.dCurDate.Set(V.Ambient.Date)
+F.Intrinsic.Date.Year(V.Local.dDate,V.Local.sYear)
+F.Intrinsic.Date.DateSerial(V.Local.sYear,01,01,V.Local.dDate)
+v.Local.sCustomerList.Declare
+V.Local.iDays.Declare(Long)
+
+'Get customer list
+f.Intrinsic.String.Replace(v.Screen.Form!txtCustList.Text,",","','",v.Local.sCustomerList)
+
+'Set SQL Query to get the Shape codes that will be used, and save them to a uShape
+V.Local.sSql.Set("Select * From GCG_Warehouse_Maint")
+'F.Data.DataTable.CreateFromSQL("dtShape","conx",V.Local.sSql,True)
+F.ODBC.Connection!conx.OpenLocalRecordsetRO("rst",V.Local.sSql)
+F.Intrinsic.Control.If(V.ODBC.conx!rst.EOF,!=,True)
+	F.Intrinsic.Variable.LoadUDTFromRecordset("conx","rst","v.uGlobal.uShape",False)
+F.Intrinsic.Control.Else
+	F.Intrinsic.Debug.SetLA("No records for shape codes")
+	F.Intrinsic.Control.CallSub(WriteLog,"Content","No records for shape codes")
+F.Intrinsic.Control.EndIf
+F.ODBC.conx!rst.Close
+
+'Loop through uShape and get all the parts that match the shape codes, and save the information to uExcel.
+F.Intrinsic.Control.For(V.Local.iCount,0,V.uGlobal.uShape.UBound,1)
+	'F.Intrinsic.String.Concat("Select Inventory_MSTR.Part, Inventory_MSTR.Code_BOM, Inventory_MSTR.Location, Inventory_MSTR.Description, Inventory_MSTR.Qty_Reorder, Inventory_MSTR.Qty_Order, Inventory_MSTR.Qty_Onhand, Inventory_MSTR.Qty_Required, Inventory_MSTR.Qty_OnOrder_PO, Inventory_MSTR.Qty_OnOrder_WO, Inventory_MSTR.Code_RM_Shape, Inv_Cross_Ref.Customer_Part, Inv_Cross_Ref.Customer, OE_C_PART_PRICE.FF_PRICE From Inventory_MSTR Left Join OE_C_PART_PRICE on OE_C_PART_PRICE.PART = Inventory_MSTR.Part Left Join Inv_Cross_Ref on Inv_Cross_Ref.Part = Inventory_MSTR.Part Where Inventory_MSTR.Code_RM_Shape = '",V.uGlobal.uShape(v.Local.iCount)!sShape.Trim,"'and Inv_Cross_Ref.Customer IN('",v.Local.sCustomerList,"')",V.Local.sSql)
+	F.Intrinsic.String.Concat("Select Inventory_MSTR.Part, Inventory_MSTR.Code_BOM, Inventory_MSTR.Location, Inventory_MSTR.Description, Inventory_MSTR.Qty_Reorder, Inventory_MSTR.Qty_Order, Inventory_MSTR.Qty_Onhand, Inventory_MSTR.Qty_Required, Inventory_MSTR.Qty_OnOrder_PO, Inventory_MSTR.Qty_OnOrder_WO, Inventory_MSTR.Code_RM_Shape, Inv_Cross_Ref.Customer_Part, Inv_Cross_Ref.Customer From Inventory_MSTR Left Join Inv_Cross_Ref on Inv_Cross_Ref.Part = Inventory_MSTR.Part Where Inventory_MSTR.Code_RM_Shape = '",V.uGlobal.uShape(v.Local.iCount)!sShape.Trim,"'and Inv_Cross_Ref.Customer IN('",v.Local.sCustomerList,"')",V.Local.sSql)
+	'old values: 40000', '43000', '43002', '43003
+	F.ODBC.Connection!conx.OpenLocalRecordsetRO("rst",V.Local.sSql)
+
+	F.Intrinsic.Control.If(V.uGlobal.uExcel.UBound,=,-1)
+		V.uGlobal.uExcel.Redim(0,0)
+		F.Intrinsic.Variable.LoadUDTFromRecordset("conx","rst","v.uGlobal.uExcel",False)
+	F.Intrinsic.Control.Else
+		F.Intrinsic.Variable.LoadUDTFromRecordset("conx","rst","v.uGlobal.uExcel",True)
+	F.Intrinsic.Control.EndIf
+F.ODBC.conx!rst.Close
+F.Intrinsic.Control.Next(V.Local.iCount)
+
+
+F.Intrinsic.Variable.UDTMultiFlagDuplicates(V.uGlobal.uExcel!sPart)
+F.Intrinsic.Variable.UDTDeleteFlagged(V.uGlobal.uExcel)
+
+
+'Loop through uExcel and gather additional information needed on the spreadsheet.
+F.Intrinsic.Control.For(V.Local.iCount,0,V.uGlobal.uExcel.UBound,1)
+
+	V.Local.sCase.Set(V.uGlobal.uExcel(v.Local.iCount)!sShapeC.Trim)
+	V.Local.sPart.Set(V.uGlobal.uExcel(v.Local.iCount)!sPart)
+	V.Local.sCust.Set(V.uGlobal.uExcel(v.Local.iCount)!sCustomer)
+	V.Local.sLocation.Set(V.uGlobal.uExcel(v.Local.iCount)!sLocation)
+	V.Local.sUM.Set(V.uGlobal.uExcel(v.Local.iCount)!sUM.Trim)
+	
+	'Based on shape code set the Customer Specified Code, and Warehouse
+	F.Intrinsic.Variable.UDTSeek(V.uGlobal.uShape!sShape,V.Local.sCase,4,V.Local.sRet)
+	V.uGlobal.uExcel(v.Local.iCount)!sCustCode.Set(V.uGlobal.uShape(v.Local.sRet)!sCustCode)
+	V.uGlobal.uExcel(v.Local.iCount)!sWarehouse.Set(V.uGlobal.uShape(v.Local.sRet)!sWarehouse)
+	
+
+'Moved bringing in the Price to the Select statement above because we needed to use it to limit duplicates in a left join on INV_CROSS_REF. This was casuing an issue if there was no Price in the OE_C_PART_PRICE for a specific customer but there were 2 customer in the Customer list for INV_CROSS_REF. -SS 12/10/2021
+	'Set SQL Query to get the price for the part based on the Customer
+	'F.Intrinsic.String.Concat("Select FF_Price as Price From V_OE_C_Part_Price where Part = '",V.Local.sPart.Trim,"' and Customer = '",V.Local.sCust.Trim,"'",V.Local.sSql)
+	F.Intrinsic.String.Concat("Select FF_Price as Price From V_OE_C_Part_Price where Part = '",V.Local.sPart.Trim,"'",V.Local.sSql)
+	F.ODBC.Connection!conx.OpenLocalRecordsetRO("rst",V.Local.sSql)
+	F.Intrinsic.Control.If(V.ODBC.conx!rst.EOF,=,False)
+		'Save value to uExcel udt
+		V.uGlobal.uExcel(v.Local.iCount)!iPrice.Set(V.ODBC.conx!rst.FieldVal!Price)
+	F.Intrinsic.Control.EndIf
+	F.ODBC.conx!rst.Close
+	
+	'Set SQL for the Notes
+	F.Intrinsic.String.Concat("SELECT Text FROM V_Part_Notes WHERE Part = '",V.Local.sPart.Trim,"'",V.Local.sSql)
+	F.ODBC.Connection!conx.OpenLocalRecordsetRO("rst",V.Local.sSql)
+	F.Intrinsic.Control.If(V.ODBC.conx!rst.EOF,=,False)
+		'If there is a record save to sNotes
+		V.Local.sNotes.Set(V.ODBC.conx!rst.FieldVal!Text)
+		'Limit the value to 30 characters.
+		F.Intrinsic.String.LimitSplit(V.Local.sNotes,30,V.Local.sNotes)
+		'Save to uExcel
+		V.uGlobal.uExcel(v.Local.iCount)!sNotes.Set(V.Local.sNotes(0))
+	F.Intrinsic.Control.EndIf
+	F.ODBC.conx!rst.close
+	
+	'Set SQL to get the Total of the Qty_Shipped Column for a part between the the start of year and current day.
+	F.Intrinsic.String.Concat("Select sum(Qty_Shipped) as Qty From v_Order_Hist_Line Where Date_Shipped between '",V.Local.dDate.PervasiveDate,"'  and '",V.Local.dCurDate.PervasiveDate,"' and Part = '",V.Local.sPart,"' and Location = '",V.Local.sLocation,"'",V.Local.sSql)
+	F.ODBC.Connection!conx.OpenLocalRecordsetRO("rst",V.Local.sSql)
+	F.Intrinsic.Control.If(V.ODBC.conx!rst.FieldVal!Qty,!=,"")
+		'Save the returned value to uExcel
+		V.uGlobal.uExcel(v.Local.iCount)!iYTDQtyShip.Set(V.ODBC.conx!rst.FieldValFloat!Qty)
+	F.Intrinsic.Control.Else
+		'If no records exists save 0
+		V.uGlobal.uExcel(v.Local.iCount)!iYTDQtyShip.Set(0)
+	F.Intrinsic.Control.EndIf
+	F.ODBC.conx!rst.Close
+
+	V.uGlobal.uWipDate.Redim(0,2)
+
+	'If the Part is Not a BOM get the 3 Possible WIP have Ready Dates as follow
+	F.Intrinsic.Control.If(V.Local.sUM,!=,"B")
+
+		'Save earliest Date Due for Purchase Orders based on part
+		F.Intrinsic.String.Concat("Select Date_Due_Line From v_PO_Lines where Part = '",V.Local.sPart,"' and Location = '",V.Local.sLocation,"' and Flag_Recv_Close <> 'Y' Order by Date_Due_Line ASC",V.Local.sSql)
+		F.ODBC.Connection!conx.OpenLocalRecordsetRO("rst",V.Local.sSql)
+		F.Intrinsic.Control.If(V.ODBC.conx!rst.EOF,=,False)
+			V.uGlobal.uWipDate(0)!dWipDate.Set(V.ODBC.conx!rst.FieldVal!Date_Due_Line)
+		F.Intrinsic.Control.Else
+			V.uGlobal.uWipDate(0)!dWipDate.Set("")
+		F.Intrinsic.Control.EndIf
+		F.ODBC.conx!rst.Close
+		
+		'Save the Earliest Date Due for Work Orders based on part Plus 2 days
+		F.Intrinsic.String.Concat("Select Date_Due From v_Job_Header where Part = '",V.Local.sPart,"' and Location = '",V.Local.sLocation,"' and Date_Closed = '1900-01-01' Order by Date_Due ASC",V.Local.sSql)
+		F.ODBC.Connection!conx.OpenLocalRecordsetRO("rst",V.Local.sSql)
+		F.Intrinsic.Control.If(V.ODBC.conx!rst.EOF,=,False)
+			V.uGlobal.uWipDate(1)!dWipDate.Set(V.ODBC.conx!rst.FieldVal!Date_Due)
+		F.Intrinsic.Control.Else
+			V.uGlobal.uWipDate(1)!dWipDate.Set("")
+		F.Intrinsic.Control.EndIf
+		F.ODBC.conx!rst.Close
+		
+		'Save the Earliest Date Last Received from Item Master Plus 28 days.  This is on water date there must be a PO for the Bin
+		F.Intrinsic.String.Concat("Select Date_Last_Rec From v_Item_Master where Part = '",V.Local.sPart,"' and Location = '",V.Local.sLocation,"' and Bin Like 'O%' and PO_Number <> '' Order by Date_Last_Rec ASC",V.Local.sSql)
+		F.ODBC.Connection!conx.OpenLocalRecordsetRO("rst",V.Local.sSql)
+		F.Intrinsic.Control.If(V.ODBC.conx!rst.EOF,=,False)
+			V.Local.dWaterDate.Set(V.ODBC.conx!rst.FieldVal!Date_Last_Rec)
+			
+			'GSS CI Arturo Almaguer modification 8/8/22
+			'Reading stored value in GS Registry which was set in the new Days On the Water maintenance menu
+			F.Global.Registry.ReadValue(V.Caller.User,V.Caller.CompanyCode,"GCG_5354",5354,1001,1,"",V.Local.iDays)
+			F.Intrinsic.Date.DateAdd("D",V.Local.iDays,V.Local.dWaterDate,V.Local.dWaterDate)
+			'F.Intrinsic.Date.DateAdd("D",28,V.Local.dWaterDate,V.Local.dWaterDate)
+			'''''''''''''''''''''''''''''''''''''''''''''
+			
+			V.uGlobal.uWipDate(2)!dWipDate.Set(V.Local.dWaterDate)
+		F.Intrinsic.Control.Else
+			V.uGlobal.uWipDate(2)!dWipDate.Set("")
+		F.Intrinsic.Control.EndIf
+		F.ODBC.conx!rst.Close
+
+		'Sort the udt so the earliest date is first
+		F.Intrinsic.Variable.UDTMultiQuickSort(V.uGlobal.uWipDate!dWipDate,False)
+
+		V.Local.iCount2.Set(0)
+		'Loop through UDT
+		F.Intrinsic.Control.For(V.Local.iCount2,0,2,1)
+			'Check to make sure the date is not blank
+			F.Intrinsic.Control.If(V.uGlobal.uWipDate(v.Local.iCount2)!dWipDate,!=,"")
+				'If it is not blank save date
+				V.Local.dWipDate.Set(V.uGlobal.uWipDate(v.Local.iCount2)!dWipDate)
+				V.uGlobal.uExcel(v.Local.iCount)!dWipDate.Set(V.Local.dWipDate)
+				'Exit Loop since the earliest date was found
+				F.Intrinsic.Control.ExitFor(V.Local.iCount2)
+			F.Intrinsic.Control.EndIf
+'			F.Intrinsic.Math.Add(V.Local.iCount2,1,V.Local.iCount2)
+		F.Intrinsic.Control.Next(V.Local.iCount2)
+
+	'If Part is a BOM use the following Method to get the WIP Date
+	F.Intrinsic.Control.Else
+		'Set Sql Query for the BOM master to get all the child parts
+		F.Intrinsic.String.Concat("Select Part from BOM_MSTR where Parent = '",V.Local.sPart,"' and Part <> '' and Part <> '",V.Local.sPart,"'",V.Local.sSql)
+		F.ODBC.Connection!conx.OpenLocalRecordsetRO("rst",V.Local.sSql)
+		'If there are children then save them to the uChild udt
+		F.Intrinsic.Control.If(V.ODBC.conx!rst.EOF,=,False)
+			F.Intrinsic.Variable.LoadUDTFromRecordset("conx","rst","v.uGlobal.uChild",False)
+		'If no children then set WIP Date to Blank
+		F.Intrinsic.Control.Else
+			V.uGlobal.uExcel(v.Local.iCount)!dWipDate.Set("1900-01-01")
+		F.Intrinsic.Control.EndIf
+		F.ODBC.conx!rst.Close
+
+		V.Local.iCount2.Set(0)
+		'Loop through each child part and get the 3 possible WIP dates and save the dates to uWIPDate
+		F.Intrinsic.Control.For(V.Local.iCount2,0,V.uGlobal.uChild.UBound,1)
+			'Save earliest Date Due for Purchase Orders based on part
+			F.Intrinsic.String.Concat("Select Date_Due_Line From v_PO_Lines where Part = '",V.uGlobal.uChild(v.Local.iCount2)!sPart,"' and Flag_Recv_Close <> 'Y' Order by Date_Due_Line ASC",V.Local.sSql)
+			F.ODBC.Connection!conx.OpenLocalRecordsetRO("rst",V.Local.sSql)
+			F.Intrinsic.Control.If(V.ODBC.conx!rst.EOF,=,False)
+				V.uGlobal.uWipDate(0)!dWipDate.Set(V.ODBC.conx!rst.FieldVal!Date_Due_Line)
+			F.Intrinsic.Control.Else
+				V.uGlobal.uWipDate(0)!dWipDate.Set("")
+			F.Intrinsic.Control.EndIf
+			F.ODBC.conx!rst.Close
+			
+			'Save the Earliest Date Due for Work Orders based on part Plus 2 days
+			F.Intrinsic.String.Concat("Select Date_Due From v_Job_Header where Part = '",V.uGlobal.uChild(v.Local.iCount2)!sPart,"' and Date_Closed = '1900-01-01' Order by Date_Due ASC",V.Local.sSql)
+			F.ODBC.Connection!conx.OpenLocalRecordsetRO("rst",V.Local.sSql)
+			F.Intrinsic.Control.If(V.ODBC.conx!rst.EOF,=,False)
+				V.uGlobal.uWipDate(1)!dWipDate.Set(V.ODBC.conx!rst.FieldVal!Date_Due)
+			F.Intrinsic.Control.Else
+				V.uGlobal.uWipDate(1)!dWipDate.Set("")
+			F.Intrinsic.Control.EndIf
+			F.ODBC.conx!rst.Close
+			
+			'Save the Earliest Date Last Received from Item Master Plus 28 days.  This is on water date there must be a PO for the Bin
+			F.Intrinsic.String.Concat("Select Date_Last_Rec From v_Item_Master where Part = '",V.uGlobal.uChild(v.Local.iCount2)!sPart,"' and Bin Like 'O%' and PO_Number <> '' Order by Date_Last_Rec ASC",V.Local.sSql)
+			F.ODBC.Connection!conx.OpenLocalRecordsetRO("rst",V.Local.sSql)
+			F.Intrinsic.Control.If(V.ODBC.conx!rst.EOF,=,False)
+				V.Local.dWaterDate.Set(V.ODBC.conx!rst.FieldVal!Date_Last_Rec)
+				
+				'GSS CI Arturo Almaguer modification 8/8/22
+				'Reading stored value in GS Registry which was set in the new Days On the Water maintenance menu
+				F.Global.Registry.ReadValue(V.Caller.User,V.Caller.CompanyCode,"GCG_5354",5354,1001,1,"",V.Local.iDays)
+				F.Intrinsic.Date.DateAdd("D",V.Local.iDays,V.Local.dWaterDate,V.Local.dWaterDate)
+				'F.Intrinsic.Date.DateAdd("D",28,V.Local.dWaterDate,V.Local.dWaterDate)
+				'''''''''''''''''''''''''''''''''''''''''''''
+				
+				V.uGlobal.uWipDate(2)!dWipDate.Set(V.Local.dWaterDate)
+			F.Intrinsic.Control.Else
+				V.uGlobal.uWipDate(2)!dWipDate.Set("")
+			F.Intrinsic.Control.EndIf
+			F.ODBC.conx!rst.Close
+			'Sort the uWIPDate so the earliest date is first
+			F.Intrinsic.Variable.UDTMultiQuickSort(V.uGlobal.uWipDate!dWipDate,False)
+
+			V.Local.iCount3.Set(0)
+			'Loop through UDT
+			F.Intrinsic.Control.DoUntil(V.Local.iCount3,>,2)
+				'Check to make sure the date is not blank
+
+				F.Intrinsic.Control.If(V.uGlobal.uWipDate(v.Local.iCount3)!dWipDate,!=,"","AND",V.uGlobal.uWipDate(v.Local.iCount3)!dWipDate,!=,"1/1/1900")
+					'If it is not blank save date
+					V.Local.dWipDate.Set(V.uGlobal.uWipDate(v.Local.iCount3)!dWipDate)
+					V.uGlobal.uChild(v.Local.iCount2)!dWipDate.Set(V.Local.dWipDate)
+					'Exit Loop since the earliest date was found
+					F.Intrinsic.Control.ExitDo
+				F.Intrinsic.Control.EndIf
+				F.Intrinsic.Math.Add(V.Local.iCount3,1,V.Local.iCount3)
+			F.Intrinsic.Control.Loop
+
+		F.Intrinsic.Control.Next(V.Local.iCount2)
+		'Now that we have a possible WIP date for Each child sort the uChild udt and find the earliest possible date.  This date will be saved to the uExcel udt for that parent parts WIP have ready date.
+		F.Intrinsic.Variable.UDTMultiQuickSort(V.uGlobal.uChild!dWIPDate,False)
+		V.Local.iCount3.Set(0)
+
+		F.Intrinsic.Control.DoUntil(V.Local.iCount3,>,V.uGlobal.uChild.UBound)
+			
+			F.Intrinsic.Control.If(V.uGlobal.uChild(v.Local.iCount3)!dWIPDate.PervasiveDate,!=,"","AND",V.uGlobal.uWipDate(v.Local.iCount3)!dWipDate.PervasiveDate,!=,"1900-01-01")
+				V.uGlobal.uExcel(v.Local.iCount)!dWipDate.Set(V.uGlobal.uChild(v.Local.iCount3)!dWIPDate)
+				F.Intrinsic.Control.ExitDo
+			F.Intrinsic.Control.EndIf
+			
+			F.Intrinsic.Math.Add(V.Local.iCount3,1,V.Local.iCount3)
+		F.Intrinsic.Control.Loop
+		
+	F.Intrinsic.Control.EndIf
+
+F.Intrinsic.Control.Next(V.Local.iCount)
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("LoadUDT_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_SpreadSheet.gas",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.Debug.SetLA(V.Local.sError)
+	'F.Intrinsic.Control.CallSub(WriteLog,"Content",V.Local.sError)
+	F.Intrinsic.Control.CallSub(Unload)
+Function.Intrinsic.Control.EndIf
+
+Program.Sub.LoadUDT.End
+
+Program.Sub.CurrentInv.Start
+F.Intrinsic.Control.SetErrorHandler("CurrentInv_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+V.Local.sSql.Declare(String)
+V.Local.iQuantity.Declare(Long)
+V.Local.iQuantity2.Declare(Long)
+V.Local.iNet.Declare(Long)
+V.Local.iCount.Declare(Long)
+V.Local.iCount2.Declare(Long)
+V.Local.iInKit.Declare(Float)
+'V.Local.iInKitLarg.Declare(Float)
+V.Local.iWIPQty.Declare(Float)
+V.Local.iNetKit.Declare(Float)
+V.Local.iCheck.Declare(Long)
+'V.Local.iUbound.Declare(Long)
+
+'Loop Through Parts
+F.Intrinsic.Control.For(V.Local.iCount,0,V.uGlobal.uExcel.UBound,1)
+
+	'Get the Sum of the quantity for that part from the Item Master based on location and bin
+	F.Intrinsic.String.Concat("Select Sum(Quantity) as Qty From v_Item_Master Where Part = '",V.uGlobal.uExcel(v.Local.iCount)!sPart,"' and Location = '",V.uGlobal.uExcel(v.Local.iCount)!sLocation,"' and Bin Like 'O%' and Allocated <> 'Y'",V.Local.sSql)
+	F.ODBC.Connection!conx.OpenLocalRecordsetRO("rst",V.local.sSql)
+	F.Intrinsic.Control.If(V.ODBC.conx!rst.EOF,=,False)
+		F.Intrinsic.Control.If(V.ODBC.conx!rst.FieldVal!Qty,!=,"")
+			'Save Quantity
+			V.Local.iQuantity.Set(V.ODBC.conx!rst.FieldValFloat!Qty)
+			'Subtract the on hand Quantity
+			F.Intrinsic.Math.Sub(V.uGlobal.uExcel(v.Local.iCount)!iQtyOnHand,V.Local.iQuantity,V.Local.iNet)
+			'Subtract the Qty Requried
+			F.Intrinsic.Math.Sub(V.Local.iNet,V.uGlobal.uExcel(v.Local.iCount)!iQtyReq,V.Local.iNet)
+		F.Intrinsic.Control.Else
+			'If no sum is returned save 0
+			V.Local.iQuantity.Set(0)
+			'Subtract the on hand Quantity
+			F.Intrinsic.Math.Sub(V.uGlobal.uExcel(v.Local.iCount)!iQtyOnHand,V.Local.iQuantity,V.Local.iNet)
+			'Subtract the Qty Requried
+			F.Intrinsic.Math.Sub(V.Local.iNet,V.uGlobal.uExcel(v.Local.iCount)!iQtyReq,V.Local.iNet)
+		F.Intrinsic.Control.Endif
+	F.Intrinsic.Control.EndIf
+	F.ODBC.conx!rst.Close
+
+
+	F.Intrinsic.Control.If(V.uGlobal.uExcel(v.Local.iCount)!sUM,=,"B")
+		'Set SQL Query  so the parts that make up the parent are saved to uKit
+		F.Intrinsic.String.Concat("Select v_Bom_Mstr.Part, v_Bom_Mstr.Quantity, Inventory_MSTR.Qty_OnHand, Inventory_MSTR.Location, Inventory_MSTR.Qty_Required, Inventory_MSTR.Qty_OnOrder_PO, Inventory_Mstr.Qty_OnOrder_WO From v_Bom_Mstr left Join Inventory_MSTR On v_Bom_Mstr.Part = Inventory_MSTR.Part where Parent = '",V.uGlobal.uExcel(v.Local.iCount)!sPart,"' and v_BOM_Mstr.Part <> '",V.uGlobal.uExcel(v.Local.iCount)!sPart,"' and v_Bom_Mstr.Part <>''",V.Local.sSql)
+		F.ODBC.Connection!conx.OpenLocalRecordsetRO("rst",V.Local.sSql)
+		F.Intrinsic.Control.If(V.ODBC.conx!rst.EOF,=,False)
+			F.Intrinsic.Variable.LoadUDTFromRecordset("conx","rst","v.uGlobal.uKit",False)
+			F.ODBC.conx!rst.Close
+
+			'Loop through uKit
+			F.Intrinsic.Control.For(V.Local.iCount2,0,V.uGlobal.uKit.UBound,1)
+				'Save Quantity for each part in uKit
+				F.Intrinsic.String.Concat("Select Sum(Quantity) As Qty From v_Item_Master Where Part = '",V.uGlobal.uKit(v.Local.iCount2)!sPart,"' and Bin Like 'O%' and Allocated <> 'Y'",V.Local.sSql)
+				F.ODBC.Connection!conx.OpenLocalRecordsetRO("rst",V.Local.sSql)
+				'If a numeric value is returned
+				F.Intrinsic.Control.If(V.ODBC.conx!rst.FieldValIsNumeric!Qty,=,True)
+					'Save Value
+					V.Local.iQuantity2.Set(V.ODBC.conx!rst.FieldValFloat!Qty)
+					'Subtract on hand quantity
+					F.Intrinsic.Math.Sub(V.uGlobal.uKit(v.Local.iCount2)!iQtyOnHand,V.Local.iQuantity2,V.uGlobal.uKit(v.Local.iCount2)!iNet)
+					'subtract quantity requried
+					F.Intrinsic.Math.Sub(V.uGlobal.uKit(v.Local.iCount2)!iNet,V.uGlobal.uKit(v.Local.iCount2)!iQtyReq,V.uGlobal.uKit(v.Local.iCount2)!iNet)
+				F.Intrinsic.Control.Else
+					'If no sum is returned save 0
+	'				V.uGlobal.uKit(v.Local.iCount2)!iNet.Set(0)
+					V.Local.iQuantity2.Set(0)
+					F.Intrinsic.Math.Sub(V.uGlobal.uKit(v.Local.iCount2)!iQtyOnHand,V.Local.iQuantity2,V.uGlobal.uKit(v.Local.iCount2)!iNet)
+					'subtract quantity requried
+					F.Intrinsic.Math.Sub(V.uGlobal.uKit(v.Local.iCount2)!iNet,V.uGlobal.uKit(v.Local.iCount2)!iQtyReq,V.uGlobal.uKit(v.Local.iCount2)!iNet)
+
+				F.Intrinsic.Control.EndIf
+				F.ODBC.conx!rst.Close
+	'			F.Intrinsic.Math.Int(V.uGlobal.uKit(v.Local.iCount2)!iBOMQty,V.uGlobal.uKit(v.Local.iCount2)!iBOMQty)
+				V.uGlobal.uKit(v.Local.iCount2)!iOnWater.Set(V.Local.iQuantity2)
+				'Divide the Net by the quantity requred for that part to get the total number of parents that part can make.
+				F.Intrinsic.Math.Div(V.uGlobal.uKit(v.Local.iCount2)!iNet,V.uGlobal.uKit(v.Local.iCount2)!iBOMQty,V.uGlobal.uKit(v.Local.iCount2)!iTotal)
+
+
+
+				F.Intrinsic.Math.Add(V.uGlobal.uKit(v.Local.iCount2)!iQtyPO,V.uGlobal.uKit(v.Local.iCount2)!iQtyWO,V.uGlobal.uKit(v.Local.iCount2)!iOnWater,V.uGlobal.uKit(v.Local.iCount2)!iWIPQty)
+				F.Intrinsic.Math.Div(V.uGlobal.uKit(v.Local.iCount2)!iWIPQty,V.uGlobal.uKit(v.Local.iCount2)!iBOMQty,V.uGlobal.uKit(v.Local.iCount2)!iWIPQty)
+				F.Intrinsic.Math.Int(V.uGlobal.uKit(v.Local.iCount2)!iWIPQty,V.uGlobal.uKit(v.Local.iCount2)!iWIPQty)
+
+	'			F.Intrinsic.Control.If(V.uGlobal.uExcel(v.Local.iCount)!sUM,=,"B")
+	'				F.Intrinsic.Math.Add(V.uGlobal.uKit(v.Local.iCount2)!iQtyPO,V.uGlobal.uKit(v.Local.iCount2)!iQtyWO,V.Local.iQuantity2,V.uGlobal.uKit(v.Local.iCount2)!IWIPQty)
+	'				F.Intrinsic.Math.Div(V.uGlobal.uKit(v.Local.iCount2)!iWIPQty,V.uGlobal.uKit(v.Local.iCount2)!iBOMQty,V.uGlobal.uKit(v.Local.iCount2)!iWIPQty)
+	'			F.Intrinsic.Control.EndIf
+			'Loop through parts in uKit	
+			F.Intrinsic.Control.Next(V.Local.iCount2)
+
+			'Sort uKits so the smallest quantity that can be made is at the top of uKit.
+			F.Intrinsic.Variable.UDTMultiQuickSort(V.uGlobal.uKit!iTotal,False)
+			'Save total parent part that can be made
+			V.Local.iInKit.Set(V.uGlobal.uKit(0)!iTotal)
+
+
+
+			
+			F.Intrinsic.Variable.UDTMultiQuickSort(V.uGlobal.uKit!iWIPQty,True)
+			V.uGlobal.uExcel(v.Local.iCount)!iWipQty.Set(V.uGlobal.uKit(0)!iWIPQty)
+
+	'		V.Local.iUbound.Set(V.uGlobal.uKit.UBound)
+	'		V.Local.iInKitLarg.Set(V.uGlobal.uKit(v.Local.iUbound)!iTotal)
+		F.Intrinsic.Control.Else
+			'if no sum is returned then 0 Parent can be made
+			V.Local.iInKit.Set(0)
+	'		V.Local.iInKitLarg.Set(0)
+			F.ODBC.conx!rst.Close
+		F.Intrinsic.Control.EndIf
+
+	F.Intrinsic.Control.Else
+		V.Local.iInKit.Set(0)
+		
+
+
+		'Add PO order Qty to WO order Qty, to Quantity on water, to In kits largest save to Wip Qty
+		F.Intrinsic.Math.Add(V.uGlobal.uExcel(v.Local.iCount)!iQtyOrderPO,V.uGlobal.uExcel(v.Local.iCount)!iQtyOrderWO,V.Local.iQuantity,V.uGlobal.uExcel(v.Local.iCount)!iWipQty)
+
+	F.Intrinsic.Control.EndIf
+
+	'Add Net to the total parent kits
+	F.Intrinsic.Math.Add(V.Local.iNet,V.Local.iInKit,V.Local.iNetKit)
+	'Save Value to uExcel udt
+	V.uGlobal.uExcel(v.Local.iCount)!iCurInv.Set(V.Local.iNetKit)
+	'Multiply price by current inventory save to current inventory dollars
+	F.Intrinsic.Math.Mult(V.uGlobal.uExcel(v.Local.iCount)!iPrice,V.uGlobal.uExcel(v.Local.iCount)!iCurInv,V.uGlobal.uExcel(v.Local.iCount)!iCurInvDollar)
+
+'	'Calculate WIP Quantity if Part is not a BOM
+'	F.Intrinsic.Control.If(V.uGlobal.uExcel(v.Local.iCount)!sUM,=,"")
+'		'Add PO order Qty to WO order Qty, to Quantity on water, to In kits largest save to Wip Qty
+'		F.Intrinsic.Math.Add(V.uGlobal.uExcel(v.Local.iCount)!iQtyOrderPO,V.uGlobal.uExcel(v.Local.iCount)!iQtyOrderWO,V.Local.iQuantity,V.uGlobal.uExcel(v.Local.iCount)!iWipQty)
+'	F.Intrinsic.Control.EndIf
+
+
+'	'Calculate WIP Quantity if Part is a BOM
+'	F.Intrinsic.Control.If(V.uGlobal.uExcel(v.Local.iCount)!sUM,=,"B")
+'		F.Intrinsic.Control.For(V.Local.iCount2,0,V.uGlobal.uKit.UBound,1)
+'			F.Intrinsic.Math.Add(V.uGlobal.uKit(v.Local.iCount2)!iQtyPO,V.uGlobal.uKit(v.Local.iCount2)!iQtyWO,V.uGlobal.uKit(v.Local.iCount2)!iOnWater,V.uGlobal.uKit(v.Local.iCount2)!iWIPQty)
+'			F.Intrinsic.Math.Div(V.uGlobal.uKit(v.Local.iCount2)!iWIPQty,V.uGlobal.uKit(v.Local.iCount2)!iBOMQty,V.uGlobal.uKit(v.Local.iCount2)!iWIPQty)
+'			F.Intrinsic.Math.Int(V.uGlobal.uKit(v.Local.iCount2)!iWIPQty,V.uGlobal.uKit(v.Local.iCount2)!iWIPQty)
+'		F.Intrinsic.Control.Next(V.Local.iCount2)
+'		F.Intrinsic.Variable.UDTMultiQuickSort(V.uGlobal.uKit!iWIPQty,True)
+'		V.uGlobal.uExcel(v.Local.iCount)!iWipQty.Set(V.uGlobal.uKit(0)!iWIPQty)
+'	'Calculate WIP Quantity if Part is not a BOM
+'	F.Intrinsic.Control.Else
+'		'Add PO order Qty to WO order Qty, to Quantity on water, to In kits largest save to Wip Qty
+'		F.Intrinsic.Math.Add(V.uGlobal.uExcel(v.Local.iCount)!iQtyOrderPO,V.uGlobal.uExcel(v.Local.iCount)!iQtyOrderWO,V.Local.iQuantity,V.uGlobal.uExcel(v.Local.iCount)!iWipQty)
+'	F.Intrinsic.Control.EndIf
+
+	'Multiply Wip Qty by the price and save to Wip inventory Dollars
+	F.Intrinsic.Math.Mult(V.uGlobal.uExcel(v.Local.iCount)!iWipQty,V.uGlobal.uExcel(v.Local.iCount)!iPrice,V.uGlobal.uExcel(v.Local.iCount)!iWipInvDollar)
+	'Multiply year to date QTY Shipped by Price and Save to year to date Dollars
+	F.Intrinsic.Math.Mult(V.uGlobal.uExcel(v.Local.iCount)!iYTDQtyShip,V.uGlobal.uExcel(v.Local.iCount)!iPrice,V.uGlobal.uExcel(v.Local.iCount)!iYTDQtyDollar)
+
+'Loop to next part in uExcel
+F.Intrinsic.Control.Next(V.Local.iCount)
+
+'F.Intrinsic.Debug.ToggleOutputListing
+'F.Intrinsic.Debug.DumpVariableList
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("CurrentInv_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_SpreadSheet.gas",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.Debug.SetLA(V.Local.sError)
+	'F.Intrinsic.Control.CallSub(WriteLog,"Content",V.Local.sError)
+	F.Intrinsic.Control.CallSub(Unload)
+Function.Intrinsic.Control.EndIf
+
+Program.Sub.CurrentInv.End
+
+Program.Sub.Environment.Start
+F.Intrinsic.Control.SetErrorHandler("Environment_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+'Variable for Directory exists
+V.Local.bDir.Declare(Boolean)
+'Variable for File Exists
+V.Local.bFile.Declare(Boolean)
+'Variable for File Dir
+V.Local.sDir.Declare(String)
+'Variable for File string
+V.Local.sFile.Declare(String)
+'Variable for Date
+V.Local.dDate.Declare(Date)
+
+'Save Global Directory
+V.Local.sDir.Set(V.Caller.GlobalDir)
+'Save current Date
+V.Local.dDate.Set(V.Ambient.Date)
+'Add to directory to the Global
+F.Intrinsic.String.Concat(V.Local.sDir,"\Plugins\PepsiCo Inv Reports\",V.Local.sDir)
+'Save File name
+F.Intrinsic.String.Concat(V.Local.sDir,"PepsiCo_Inv_Report",V.Local.dDate.PervasiveDate,".xlsx",V.Local.sFile)
+'Check if the Directory and File name exists
+F.Intrinsic.File.DirExists(V.Local.sDir,V.Local.bDir)
+F.Intrinsic.File.Exists(V.Local.sFile,V.Local.bFile)
+'if the directory does not exists create it.
+F.Intrinsic.Control.If(V.Local.bDir,=,False)
+	F.Intrinsic.File.CreateDir(V.Local.sDir)
+F.Intrinsic.Control.EndIf
+'if the file exists delete it.
+F.Intrinsic.Control.If(V.Local.bFile,=,True)
+	F.Intrinsic.File.DeleteFile(V.Local.sFile)
+F.Intrinsic.Control.EndIf
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("Environment_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_SpreadSheet.gas",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.Debug.SetLA(V.Local.sError)
+	'F.Intrinsic.Control.CallSub(WriteLog,"Content",V.Local.sError)
+	F.Intrinsic.Control.CallSub(Unload)
+Function.Intrinsic.Control.EndIf
+
+Program.Sub.Environment.End
+
+Program.Sub.EMail.Start
+F.Intrinsic.Control.SetErrorHandler("EMail_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+V.Local.iRet.Declare(Long)
+V.Local.iCount.Declare(Long)
+V.Local.sEmail.Declare(String)
+V.Local.sUser.Declare(String)
+V.Local.sID.Declare(String)
+V.Local.sRecEmail.Declare(String)
+V.Local.sDir.Declare(String)
+V.Local.sAttach.Declare(String)
+V.Local.sSql.Declare(String)
+
+'Check to see if Courier is running
+F.Global.Messaging.IsCourierRunning(v.Local.iRet)
+'get user email
+F.Global.Security.GetUserEmail(V.Caller.User,V.Local.sEmail)
+'get user name
+F.Global.Security.GetFullName(V.Caller.User,V.Local.sUser)
+'get user ID
+f.Global.Security.GetUserID(v.Caller.User,v.Caller.CompanyCode,v.Local.sID)
+'Save user email and name together
+F.Intrinsic.String.Concat(V.Local.sEmail,"*!*",V.Local.sUser,V.Local.sUser)
+
+'Save report directory
+F.Intrinsic.String.Concat(V.Caller.GlobalDir,"\Plugins\PepsiCo Inv Reports\",V.Local.sDir)
+'Save file name and directory together
+F.Intrinsic.String.Concat(V.Global.sAttach,"*!*",V.Local.sDir,V.Local.sAttach)
+'Set SQL Query to email maint table
+V.Local.sSql.Set("Select * From GCG_Email_Maint")
+'Open connection to records
+F.ODBC.Connection!conx.OpenLocalRecordsetRO("rst",V.Local.sSql)
+
+'Check to make sure there are records
+F.Intrinsic.Control.If(V.ODBC.conx!rst.EOF,=,False)
+	'Save data to the uEmail udt
+	F.Intrinsic.Variable.LoadUDTFromRecordset("conx","rst","v.uGlobal.uEmail",False)
+F.Intrinsic.Control.Else
+	'Else set last action to no email address in table
+	F.intrinsic.debug.SetLa("No email address in table.")
+	'F.Intrinsic.Control.CallSub(WriteLog,"Content","No email address in table.")
+F.intrinsic.control.endif
+'Loop through all emails
+F.Intrinsic.Control.For(V.local.icount,0,V.uglobal.uemail.ubound,1)
+	'Save List of emails to sRecEmail
+	F.Intrinsic.String.Concat(V.Local.sRecEmail,V.uGlobal.uEmail(v.Local.iCount)!sName,"*!*",V.uGlobal.uEmail(v.Local.iCount)!sEmail,"@!@",V.Local.sRecEmail)
+F.intrinsic.control.Next(V.local.icount)
+'Check to make sure Courier is running
+F.Intrinsic.Control.If(V.Local.iRet,>,0)
+	'Send Email with attachement
+	F.Global.Messaging.QueueMessage(v.Caller.CompanyCode,v.Local.sID,"","Pepsi Co Inv Report",v.Local.suser,v.Local.sRecEmail,"Attached is the Pepsi Co Inv Report.",7,v.Local.sEmail,False,,,,,,,,v.Local.sAttach,False)
+F.Intrinsic.Control.EndIf
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("EMail_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_SpreadSheet.gas",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.Debug.SetLA(V.Local.sError)
+	'F.Intrinsic.Control.CallSub(WriteLog,"Content",V.Local.sError)
+	F.Intrinsic.Control.CallSub(Unload)
+Function.Intrinsic.Control.EndIf
+
+Program.Sub.EMail.End
+
+Program.Sub.UnLoad.Start
+F.Intrinsic.Control.SetErrorHandler("UnLoad_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+'Close connection to database
+F.Intrinsic.Control.If(V.ODBC.conx.State,=,1)
+	F.ODBC.Connection!conx.close
+F.Intrinsic.Control.EndIf
+
+'End program.
+F.Intrinsic.Control.End
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("UnLoad_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_SpreadSheet.gas",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.Debug.SetLA(V.Local.sError)
+	'F.Intrinsic.Control.CallSub(WriteLog,"Content",V.Local.sError)
+	F.Intrinsic.Control.End
+Function.Intrinsic.Control.EndIf
+
+Program.Sub.UnLoad.End
+
+Program.Sub.WIPDate.Start
+'V.Local.sSql.Declare(String)
+'V.Local.sPart.Declare(String)
+'V.Local.sLocation.Declare(String)
+'V.Local.dWaterDate.Declare(Date)
+'V.Local.dWipDate.Declare(Date)
+'V.Local.iCount.Declare(Long)
+'V.Local.iCount2.Declare(Long)
+'
+'
+'
+'F.Intrinsic.Control.For(V.Local.iCount,0,V.uGlobal.uExcel.UBound,1)
+'	
+'
+'	F.Intrinsic.Control.If(V.uGlobal.uExcel(v.Local.iCount)!sUM,!=,'B')
+'	F.Intrinsic.Control.If(v.uGlobal.uExcel(v.Local.iCount)!sUM,!=,'B')
+'
+'
+'		'Save earliest Date Due for Purchase Orders based on part
+'		F.Intrinsic.String.Concat("Select Date_Due_Line From v_PO_Lines where Part = '",V.Local.sPart,"' and Location = '",V.Local.sLocation,"' and Flag_Recv_Close <> 'Y' Order by Date_Due_Line ASC",V.Local.sSql)
+'		F.ODBC.Connection!conx.OpenLocalRecordsetRO("rst",V.Local.sSql)
+'		F.Intrinsic.Control.If(V.ODBC.conx!rst.EOF,=,False)
+'			V.uGlobal.uWipDate(0)!dWipDate.Set(V.ODBC.conx!rst.FieldVal!Date_Due_Line)
+'		F.Intrinsic.Control.Else
+'			V.uGlobal.uWipDate(0)!dWipDate.Set("")
+'		F.Intrinsic.Control.EndIf
+'		F.ODBC.conx!rst.Close
+'
+'		'Save the Earliest Date Due for Work Orders based on part Plus 2 days
+'		F.Intrinsic.String.Concat("Select Date_Due From v_Job_Header where Part = '",V.Local.sPart,"' and Location = '",V.Local.sLocation,"' and Date_Closed = '1900-01-01' Order by Date_Due ASC",V.Local.sSql)
+'		F.ODBC.Connection!conx.OpenLocalRecordsetRO("rst",V.Local.sSql)
+'		F.Intrinsic.Control.If(V.ODBC.conx!rst.EOF,=,False)
+'		'		V.Local.dWODate.Set(V.ODBC.conx!rst.FieldVal!Date_Due)
+'		'		F.Intrinsic.Date.DateAdd("D",2,V.Local.dWODate,V.Local.dWODate)
+'			V.uGlobal.uWipDate(1)!dWipDate.Set(V.ODBC.conx!rst.FieldVal!Date_Due)
+'		F.Intrinsic.Control.Else
+'			V.uGlobal.uWipDate(1)!dWipDate.Set("")
+'		F.Intrinsic.Control.EndIf
+'		F.ODBC.conx!rst.Close
+'
+'		'Save the Earliest Date Last Received from Item Master Plus 28 days.  This is on water date there must be a PO for the Bin
+'		F.Intrinsic.String.Concat("Select Date_Last_Rec From v_Item_Master where Part = '",V.Local.sPart,"' and Location = '",V.Local.sLocation,"' and Bin Like 'O%' and PO_Number <> '' Order by Date_Last_Rec ASC",V.Local.sSql)
+'		F.ODBC.Connection!conx.OpenLocalRecordsetRO("rst",V.Local.sSql)
+'		F.Intrinsic.Control.If(V.ODBC.conx!rst.EOF,=,False)
+'			V.Local.dWaterDate.Set(V.ODBC.conx!rst.FieldVal!Date_Last_Rec)
+'			F.Intrinsic.Date.DateAdd("D",28,V.Local.dWaterDate,V.Local.dWaterDate)
+'			V.uGlobal.uWipDate(2)!dWipDate.Set(V.Local.dWaterDate)
+'		F.Intrinsic.Control.Else
+'			V.uGlobal.uWipDate(2)!dWipDate.Set("")
+'		F.Intrinsic.Control.EndIf
+'		F.ODBC.conx!rst.Close
+'
+'		'Sort the udt so the earliest date is first
+'		F.Intrinsic.Variable.UDTMultiQuickSort(V.uGlobal.uWipDate!dWipDate,False)
+'		V.Local.iCount2.Set(0)
+'		'Loop through UDT
+'		F.Intrinsic.Control.DoUntil(V.Local.iCount2,>,2)
+'			'Check to make sure the date is not blank
+'			F.Intrinsic.Control.If(V.uGlobal.uWipDate(v.Local.iCount2)!dWipDate,!=,"")
+'				'If it is not blank save date
+'				V.Local.dWipDate.Set(V.uGlobal.uWipDate(v.Local.iCount2)!dWipDate)
+'				V.uGlobal.uExcel(v.Local.iCount)!dWipDate.Set(V.Local.dWipDate)
+'				'Exit Loop since the earliest date was found
+'				F.Intrinsic.Control.ExitDo
+'			F.Intrinsic.Control.EndIf
+'			F.Intrinsic.Math.Add(V.Local.iCount2,1,V.Local.iCount2)
+'		F.Intrinsic.Control.Loop
+'	F.Intrinsic.Control.Else
+'		
+'	F.Intrinsic.Control.EndIf
+'F.Intrinsic.Control.Next(V.Local.iCount)
+
+Program.Sub.WIPDate.End
+
+Program.Sub.WriteLog.Start
+V.Local.bFileExists.Declare(Boolean)
+V.Local.bDirectoryExists.Declare(Boolean)
+V.Local.sDirectoryPath.Declare(String)
+V.Local.sFileContent.Declare(String)
+V.Local.sFilePath.Declare(String)
+
+F.Intrinsic.String.Build("{0}\PepsiCo Inv Reports",V.Caller.PluginsDir,V.Local.sDirectoryPath)
+
+F.Intrinsic.File.DirExists(V.Local.sDirectoryPath,V.Local.bDirectoryExists)
+F.Intrinsic.Control.If(V.Local.bDirectoryExists.Not)
+	F.Intrinsic.File.CreateDir(V.Local.sDirectoryPath)
+F.Intrinsic.Control.EndIf
+
+F.Intrinsic.String.Build("{0}\Frito Inventory Reports\SpreadSheetGenerationLog.txt",V.Caller.PluginsDir,V.Local.sFilePath)
+
+F.Intrinsic.File.Exists(V.Local.sFilePath,V.Local.bFileExists)
+F.Intrinsic.Control.If(V.Local.bFileExists)
+
+	F.Intrinsic.String.Build("{0}Date: {1}. Time: {2}. Action: {3}",V.Ambient.NewLine,V.Ambient.Date,V.Ambient.Time,V.Args.Content,V.Local.sFileContent)
+	F.Intrinsic.File.Append2File(V.Local.sFilePath,V.Local.sFileContent)
+	
+F.Intrinsic.Control.Else
+
+	F.Intrinsic.String.Build("Date: {0}. Time: {1}. Action: {2}",V.Ambient.Date,V.Ambient.Time,V.Args.Content,V.Local.sFileContent)
+	F.Intrinsic.File.String2File(V.Local.sFilePath, V.Local.sFileContent)
+	
+F.Intrinsic.Control.EndIf
+Program.Sub.WriteLog.End
+
+Program.Sub.Comments.Start
+${$5$}$2.0.0.0$}$2
+${$6$}$apadilla$}$20220808111734614$}$Lag9STqBJOmNXSbd5+msRcBWPGz0aFqSzPePUG9qWbyM2EkaeOp3UfklXpjOQRiEWn8Pobho9z3Z4L3LtAQHgg==
+Program.Sub.Comments.End
